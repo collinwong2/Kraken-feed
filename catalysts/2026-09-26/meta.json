@@ -1,0 +1,18 @@
+{
+ "fetched_utc": "2026-09-26T17:24:24Z",
+ "sources": {
+  "listings.json": {
+   "binance": 3673,
+   "binance_tags": 487,
+   "coinbase": 838,
+   "upbit": 855
+  },
+  "governance.json": 13,
+  "news.json": 109,
+  "categories.json": 769,
+  "dex_trending.json": 60
+ },
+ "warnings": [
+  "news Blockworks: no items"
+ ]
+}
