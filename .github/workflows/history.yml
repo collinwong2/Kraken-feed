@@ -1,0 +1,83 @@
+# Long price history for testing C's trade engine - run it ONCE by hand (Actions -> long-history -> Run workflow).
+# Downloads Binance's public daily candles (data.binance.vision, the exchange's own archive, 2020 onwards) for the
+# engine's coins and saves them, untouched apart from joining the months, to a branch called "history":
+#   history/<COIN>.csv   t,o,h,l,c,v   (t = UTC day start, seconds; Binance USDT market)
+#   history/meta.json    when it ran, how many coins and candles, and which coins Binance doesn't list
+# It never touches the hourly price feed or the data branch. Safe to re-run: it replaces the branch.
+name: long-history
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download Binance daily candles
+        run: |
+          set -u
+          mkdir -p /tmp/z history
+          COINS="0G 1INCH 2Z A AAVE ADA AERO AIOZ AKE AKT ALGO APE APT AR ARB ARKM ASTER ATH ATOM AVAX AXS BAT BCH BEAM BGB BLUR BNB BONK BTC CAKE CFG CFX CHZ COMP COW CRO CRV CVX DASH DCR DOG DOGE DOT DRV DYDX EIGEN ENA ENS ETC ETH ETHFI FARTCOIN FET FIL FLOKI FLR FUN GALA GAS GMX GNO GOMINING TON GRASS GRT HBAR HNT HYPE ICP IMX INJ IP JASMY JST JTO KAITO KAS KAVA LDO LINEA LINK LPT LTC LUNC MANA MASK MINA MNT MOODENG MORPHO NEAR NEO NOT NPC OKB ONDO OP ORCA PENDLE PENGU PEPE PI PLUME POL MATIC POPCAT PROVE PUMP PYTH QNT QTUM RAY RED RENDER RNDR RPL RSR RUNE S FTM SAND SEI SHIB SNX SOL SOMI SPK SPX SSV STABLE STG STRK STX SUI SUPER SUSHI SYRUP TAO TEL TIA TRAC TRUMP TRX UMA UNI USELESS VET VIRTUAL VVV W WIF WLD WLFI XCN XDC XLM XMR XRP XTZ ZBCN ZEC ZK ZRO ZRX"
+          # every (coin, month) from Jan 2020 to last month; a coin/month Binance doesn't have is a quick 404
+          python3 - "$COINS" > /tmp/urls.txt <<'PYEOF'
+          import sys, datetime as dt
+          end = dt.date.today().replace(day=1)
+          for c in sys.argv[1].split():
+              y, m = 2020, 1
+              while dt.date(y, m, 1) < end:
+                  print('https://data.binance.vision/data/spot/monthly/klines/{0}USDT/1d/{0}USDT-1d-{1}-{2:02d}.zip'.format(c, y, m))
+                  m += 1
+                  if m == 13: y, m = y + 1, 1
+          PYEOF
+          echo "$(wc -l < /tmp/urls.txt) months to try"
+          xargs -P 24 -n 1 -a /tmp/urls.txt sh -c 'curl -sf --retry 3 -o "/tmp/z/$(basename "$0")" "$0" || true'
+          echo "$(ls /tmp/z | wc -l) monthly files downloaded"
+          test "$(ls /tmp/z | wc -l)" -gt 1000
+
+      - name: Join the months into one file per coin
+        run: |
+          python3 - <<'PYEOF'
+          import csv, io, json, os, zipfile, collections, datetime as dt
+          rows = collections.defaultdict(dict)
+          for f in os.listdir('/tmp/z'):
+              coin = f.split('USDT-')[0]
+              with zipfile.ZipFile(os.path.join('/tmp/z', f)) as z:
+                  for name in z.namelist():
+                      for r in csv.reader(io.TextIOWrapper(z.open(name))):
+                          if not r or not r[0].isdigit(): continue          # some files carry a header row
+                          t = int(r[0]); t = t // 1000000 if t > 10**14 else t // 1000   # 2025+ files are in microseconds
+                          rows[coin][t] = (r[1], r[2], r[3], r[4], r[5])
+          # renamed coins: join the old ticker's history onto the new one (same price series)
+          for new, old in (('POL', 'MATIC'), ('RENDER', 'RNDR'), ('S', 'FTM')):
+              if old in rows:
+                  merged = dict(rows.pop(old)); merged.update(rows.get(new, {})); rows[new] = merged
+          if 'TON' in rows: rows['GRAM'] = rows.pop('TON')
+          os.makedirs('history', exist_ok=True)
+          n = 0
+          for coin, d in rows.items():
+              with open('history/{}.csv'.format(coin), 'w') as f:
+                  f.write('t,o,h,l,c,v\n')
+                  for t in sorted(d):
+                      f.write('{},{}\n'.format(t, ','.join(d[t]))); n += 1
+          meta = {'fetched_utc': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                  'source': 'data.binance.vision spot 1d klines, USDT markets', 'coins': len(rows), 'candles': n,
+                  'first_day': {c: dt.datetime.fromtimestamp(min(d), dt.timezone.utc).date().isoformat() for c, d in rows.items()}}
+          json.dump(meta, open('history/meta.json', 'w'), indent=1)
+          print(meta['coins'], 'coins,', n, 'candles')
+          PYEOF
+
+      - name: Save to the history branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q --orphan history-tmp
+          git rm -r -q --cached . 2>/dev/null || true
+          git add history
+          git commit -q -m "long history $(date -u +%Y-%m-%d)"
+          git push -q --force origin history-tmp:refs/heads/history
