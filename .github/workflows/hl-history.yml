@@ -1,0 +1,121 @@
+# Hyperliquid history for testing C's trading strategies - run by hand once (Actions -> hl-history -> Run workflow),
+# then it refreshes itself every Sunday. Saves Hyperliquid's own numbers, untouched, to a branch called "hl-history":
+#   hl-history/funding/COIN.csv   every hourly funding payment since 2023 (t, funding rate, premium) - for the
+#                                 funding-carry test (short the perp, hold the coin, collect funding)
+#   hl-history/h1/COIN.csv        hourly candles, as far back as Hyperliquid serves (about 5,000 hours) - for
+#                                 testing intraday setups against the daily ones
+#   hl-history/meta.json          when it ran, which coins, what failed
+# Covers the 40 perps with the most open interest (they are the ones that can carry size). Each coin's funding
+# file is extended from where the last run stopped, so later runs are quick.
+name: hl-history
+
+on:
+  schedule:
+    - cron: '15 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hl-history
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Start from the last saved history
+        run: |
+          mkdir -p out
+          if git fetch -q --depth 1 origin hl-history; then
+            git checkout -q FETCH_HEAD -- hl-history && mv hl-history out/ || true
+          fi
+          mkdir -p out/hl-history/funding out/hl-history/h1
+
+      - name: Fetch from Hyperliquid
+        run: |
+          cat > /tmp/h.py <<'PYEOF'
+          import csv, json, os, sys, time, urllib.request, urllib.error, datetime as dt
+          API = 'https://api.hyperliquid.xyz/info'
+          OUT = 'out/hl-history'
+          START = int(dt.datetime(2023, 1, 1, tzinfo=dt.timezone.utc).timestamp() * 1000)
+          TOP = 40
+          def post(body, tries=5):
+              err = None
+              for i in range(tries):
+                  try:
+                      req = urllib.request.Request(API, data=json.dumps(body).encode(),
+                                                   headers={'Content-Type': 'application/json', 'User-Agent': 'hl-history/1.0'})
+                      with urllib.request.urlopen(req, timeout=30) as r:
+                          return json.loads(r.read().decode()), None
+                  except urllib.error.HTTPError as e:
+                      err = 'HTTP {}'.format(e.code); time.sleep(20 * (i + 1) if e.code == 429 else 5 * (i + 1))
+                  except Exception as e:
+                      err = str(e); time.sleep(5 * (i + 1))
+              return None, err
+          now = int(time.time() * 1000)
+          meta = {'fetched_utc': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), 'coins': [], 'errors': []}
+          res, e = post({'type': 'metaAndAssetCtxs'})
+          if not res: print('meta failed', e); sys.exit(1)
+          uni, ctx = res
+          ranked = []
+          for a, c in zip(uni['universe'], ctx):
+              if a.get('isDelisted'): continue
+              try: oi = float(c.get('openInterest') or 0) * float(c.get('markPx') or 0)
+              except ValueError: oi = 0
+              ranked.append((oi, a['name']))
+          coins = [n for _, n in sorted(ranked, reverse=True)[:TOP]]
+          for coin in coins:
+              # ---- funding: extend the saved file from its last timestamp, 500 rows a call
+              fp = os.path.join(OUT, 'funding', coin + '.csv')
+              rows = {}
+              if os.path.exists(fp):
+                  for r in csv.DictReader(open(fp)): rows[int(r['t'])] = (r['rate'], r['premium'])
+              t = (max(rows) + 1) if rows else START
+              calls = 0
+              while t < now and calls < 60:
+                  got, e = post({'type': 'fundingHistory', 'coin': coin, 'startTime': t, 'endTime': now})
+                  calls += 1
+                  time.sleep(1.2)
+                  if got is None: meta['errors'].append('funding {}: {}'.format(coin, e)); break
+                  if not got: break
+                  for g in got: rows[int(g['time'])] = (g['fundingRate'], g.get('premium', ''))
+                  nt = max(int(g['time']) for g in got) + 1
+                  if nt <= t: break
+                  t = nt
+              with open(fp, 'w') as f:
+                  f.write('t,rate,premium\n')
+                  for k in sorted(rows): f.write('{},{},{}\n'.format(k // 1000, *rows[k]))
+              # ---- hourly candles: as many as Hyperliquid serves (5,000)
+              bars, e = post({'type': 'candleSnapshot', 'req': {'coin': coin, 'interval': '1h',
+                              'startTime': now - 5000 * 3600 * 1000, 'endTime': now}})
+              time.sleep(1.2)
+              if bars:
+                  with open(os.path.join(OUT, 'h1', coin + '.csv'), 'w') as f:
+                      f.write('t,o,h,l,c,v\n')
+                      for b in sorted(bars, key=lambda b: int(b['t'])):
+                          f.write('{},{},{},{},{},{}\n'.format(int(b['t']) // 1000, b['o'], b['h'], b['l'], b['c'], b['v']))
+              else: meta['errors'].append('h1 {}: {}'.format(coin, e or 'empty'))
+              meta['coins'].append({'coin': coin, 'funding_rows': len(rows), 'h1_rows': len(bars or [])})
+              print(coin, len(rows), len(bars or []))
+          json.dump(meta, open(os.path.join(OUT, 'meta.json'), 'w'), indent=1)
+          sys.exit(0 if meta['coins'] and len(meta['errors']) < 10 else 1)
+          PYEOF
+          python3 /tmp/h.py
+
+      - name: Save to the hl-history branch (one version, replaced each run)
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          test -f out/hl-history/meta.json || { echo "nothing fetched"; exit 1; }
+          git checkout -q --orphan hlh-tmp
+          git rm -r -q --cached . 2>/dev/null || true
+          rm -rf hl-history && mv out/hl-history hl-history
+          git add hl-history
+          git commit -q -m "hl history $(date -u +%Y-%m-%d)"
+          git push -q --force origin hlh-tmp:refs/heads/hl-history
