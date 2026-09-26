@@ -1,0 +1,288 @@
+# Price feed for C's trade engine: Kraken spot + Hyperliquid perps.
+# Every hour at :40 (UTC) GitHub's servers call both exchanges' own public APIs and save the replies
+# into this repository. Nothing is summarised or edited - the files are the exchanges' numbers.
+#
+#   meta.json          Kraken run: when, Kraken's server time, what failed
+#   ticker.csv         every Kraken USD pair: live price, today's open/high/low/volume, 24h range, bid, ask
+#   ohlc/PAIR.csv      Kraken daily candles (up to 720 days) for the engine's watchlist; last row = today so far
+#   raw/ticker.json    Kraken's untouched ticker reply, for proof
+#   hl_meta.json       Hyperliquid perp list with max leverage (Hyperliquid's "meta" reply, untouched)
+#   hl/ticker.csv      every Hyperliquid perp: mark, oracle, mid, previous-day price, 24h volume, funding, OI
+#   hl/ohlc/COIN.csv   Hyperliquid daily candles (last 120 UTC days) for every perp; last row = today so far
+#   hl/meta.json       Hyperliquid run: when, what failed
+#
+# The data is saved to a separate branch called "data", which keeps ONE version (each run replaces the
+# last), so the repository never grows. The main branch - this file and the README - is never touched.
+# One exchange failing never stops the other from being saved; each meta file says what failed, and the
+# run is then marked failed so GitHub emails you.
+name: price-feed
+
+on:
+  schedule:
+    - cron: '40 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write          # only for the keep-alive step below
+
+concurrency:
+  group: feed
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Start from the last saved data
+        run: |
+          # keep the previous files, so an exchange that fails this hour still has last hour's data (dated)
+          if git fetch -q --depth 1 origin data; then
+            echo "DATA_SHA=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_ENV"
+            git checkout -q FETCH_HEAD -- . 
+          else
+            echo "DATA_SHA=" >> "$GITHUB_ENV"
+            echo "no data branch yet - first run"
+          fi
+
+      - name: Kraken
+        id: kraken
+        continue-on-error: true
+        timeout-minutes: 10
+        env:
+          PAIRS: >-
+            XBTUSD ETHUSD SOLUSD XRPUSD BNBUSD DOGEUSD ADAUSD LINKUSD AVAXUSD LTCUSD BCHUSD TRXUSD
+            DOTUSD XLMUSD HBARUSD SUIUSD TONUSD SHIBUSD TAOUSD AAVEUSD MNTUSD PEPEUSD ICPUSD ENAUSD
+            WLFIUSD ONDOUSD ETCUSD ASTERUSD ARBUSD JSTUSD VVVUSD KASUSD ALGOUSD MORPHOUSD WLDUSD
+            CAKEUSD RENDERUSD ATOMUSD QNTUSD INJUSD DASHUSD VETUSD FILUSD AEROUSD STXUSD CROUSD APTUSD
+            PENGUUSD CRVUSD FLRUSD FETUSD PENDLEUSD RAYUSD VIRTUALUSD SPXUSD TRUMPUSD LDOUSD ETHFIUSD
+            XTZUSD PYTHUSD TIAUSD DRVUSD ARUSD IMXUSD ZROUSD SYRUPUSD CFXUSD FLOKIUSD BONKUSD ENSUSD
+            GRTUSD OPUSD WIFUSD COMPUSD JASMYUSD RUNEUSD JTOUSD STRKUSD TRACUSD NEOUSD AXSUSD
+            FARTCOINUSD CVXUSD MANAUSD AKTUSD CHZUSD STGUSD 1INCHUSD MINAUSD SUSD BATUSD AIOZUSD
+            APEUSD DYDXUSD SANDUSD QTUMUSD ZRXUSD RSRUSD BEAMUSD ZKUSD GALAUSD SUPERUSD GRASSUSD
+            GASUSD ORCAUSD HNTUSD KAITOUSD COWUSD GMXUSD XMRUSD ZECUSD HYPEUSD UNIUSD NEARUSD
+            USELESSUSD PROVEUSD SOMIUSD POPCATUSD MOODENGUSD SPKUSD PLUMEUSD SUSHIUSD RPLUSD SSVUSD
+            UMAUSD REDUSD LINEAUSD EIGENUSD WUSD ARKMUSD CFGUSD IPUSD NOTUSD BLURUSD MASKUSD SNXUSD
+            KAVAUSD 0GUSD LPTUSD ATHUSD POLUSD SEIUSD SKYUSD OKBUSD BGBUSD AKEUSD PIUSD STABLEUSD
+            XDCUSD DCRUSD GNOUSD LUNAUSD FUNUSD ZBCNUSD 2ZUSD NPCUSD GOMININGUSD XCNUSD AUSD TELUSD
+            DOGUSD PUMPUSD
+        run: |
+          cat > /tmp/kraken.py <<'PYEOF'
+          import json, os, sys, time, urllib.request, datetime as dt
+
+          API = 'https://api.kraken.com/0/public/'
+          PAIRS = os.environ.get('PAIRS', '').split()
+          ALIAS = {'XDG': 'DOGE', 'XXDG': 'DOGE'}
+
+          def get(path, tries=4):
+              err = None
+              for i in range(tries):
+                  try:
+                      req = urllib.request.Request(API + path, headers={'User-Agent': 'price-feed/1.0'})
+                      with urllib.request.urlopen(req, timeout=30) as r:
+                          body = json.loads(r.read().decode())
+                      errs = [e for e in body.get('error') or [] if not e.startswith('W')]   # W... = warning
+                      if errs:
+                          err = '; '.join(errs)
+                          if any('Rate limit' in e or 'Too many' in e or e.startswith('EService') for e in errs):
+                              time.sleep(10 * (i + 1)); continue
+                          return None, err
+                      if 'result' not in body:
+                          err = 'no result in reply'; time.sleep(5 * (i + 1)); continue
+                      return body['result'], None
+                  except Exception as e:
+                      err = str(e)
+                  time.sleep(5 * (i + 1))
+              return None, err
+
+          def name_of(info):
+              alt = info.get('altname', '')
+              if info.get('quote') not in ('ZUSD', 'USD') or not alt.endswith('USD'):
+                  return None
+              base = alt[:-3]
+              return ALIAS.get(base, base) + 'USD'
+
+          def main(out='.'):
+              started = dt.datetime.now(dt.timezone.utc)
+              errors = []
+              srv, e = get('Time')
+              if e: errors.append('Time: ' + e)
+              pairs, e = get('AssetPairs')
+              if not pairs:
+                  print('AssetPairs failed:', e); return 1
+              key_of, status = {}, {}
+              for key, info in pairs.items():
+                  n = name_of(info)
+                  if n and n not in key_of:
+                      key_of[n] = key; status[n] = info.get('status', 'online')
+              tick, e = get('Ticker')
+              if not tick:
+                  print('Ticker failed:', e); return 1
+              rows = []
+              for n in sorted(key_of):
+                  t = tick.get(key_of[n])
+                  if not t: continue
+                  rows.append([n, t['c'][0], t['o'], t['h'][0], t['l'][0], t['v'][0],
+                               t['h'][1], t['l'][1], t['v'][1], t['b'][0], t['a'][0], status[n]])
+              if not rows:
+                  print('Ticker reply had no USD pairs'); return 1
+              os.makedirs(os.path.join(out, 'raw'), exist_ok=True)
+              json.dump(tick, open(os.path.join(out, 'raw', 'ticker.json'), 'w'), sort_keys=True)
+              with open(os.path.join(out, 'ticker.csv'), 'w') as f:
+                  f.write('pair,last,open_today,high_today,low_today,vol_today,high24h,low24h,vol24h,bid,ask,status\n')
+                  for r in rows: f.write(','.join(str(x) for x in r) + '\n')
+              # clear last hour's candles: a pair that fails now must show as missing, never as stale-but-fresh
+              od = os.path.join(out, 'ohlc')
+              os.makedirs(od, exist_ok=True)
+              for fn in os.listdir(od): os.remove(os.path.join(od, fn))
+              got, missing, fails = 0, [], 0
+              for n in PAIRS:
+                  k = key_of.get(n)
+                  if not k:
+                      missing.append(n); continue
+                  if fails >= 8:
+                      errors.append('OHLC {}: skipped - Kraken failing repeatedly'.format(n)); continue
+                  res, e = get('OHLC?pair={}&interval=1440'.format(k))
+                  time.sleep(1.2)                       # Kraken public limit is about 1 call a second
+                  bars = res and next((v for kk, v in res.items() if kk != 'last'), None)
+                  if not bars:
+                      fails += 1
+                      errors.append('OHLC {}: {}'.format(n, e or 'empty')); continue
+                  fails = 0
+                  with open(os.path.join(out, 'ohlc', n + '.csv'), 'w') as f:
+                      f.write('t,o,h,l,c,vwap,v,count\n')
+                      for b in bars: f.write(','.join(str(x) for x in b) + '\n')
+                  got += 1
+              meta = {'fetched_utc': started.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                      'finished_utc': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                      'kraken_server_time': (srv or {}).get('rfc1123'),
+                      'kraken_unixtime': (srv or {}).get('unixtime'),
+                      'ticker_pairs': len(rows), 'ohlc_pairs': got, 'ohlc_requested': len(PAIRS),
+                      'not_on_kraken': missing,
+                      'not_online': {n: status[n] for n in PAIRS if status.get(n, 'online') != 'online'},
+                      'errors': errors}
+              json.dump(meta, open(os.path.join(out, 'meta.json'), 'w'), indent=1)
+              print(json.dumps(meta, indent=1))
+              return 0 if got or not PAIRS else 1
+
+          if __name__ == '__main__':
+              sys.exit(main(*sys.argv[1:2]))
+          PYEOF
+          python3 /tmp/kraken.py .
+
+      - name: Hyperliquid
+        id: hl
+        continue-on-error: true
+        timeout-minutes: 15
+        run: |
+          cat > /tmp/hl.py <<'PYEOF'
+          import json, os, sys, time, urllib.request, urllib.error, datetime as dt
+
+          API = 'https://api.hyperliquid.xyz/info'
+          DAYS = 120                  # daily candles kept per perp
+          PAUSE = 1.6                 # seconds between candle calls: each costs ~22 of the 1,200/minute allowance
+
+          def post(body, tries=5):
+              err = None
+              for i in range(tries):
+                  try:
+                      req = urllib.request.Request(API, data=json.dumps(body).encode(),
+                                                   headers={'Content-Type': 'application/json',
+                                                            'User-Agent': 'price-feed/1.0'})
+                      with urllib.request.urlopen(req, timeout=30) as r:
+                          return json.loads(r.read().decode()), None
+                  except urllib.error.HTTPError as e:
+                      err = 'HTTP {}'.format(e.code)
+                      time.sleep(15 * (i + 1) if e.code == 429 else 5 * (i + 1))
+                  except Exception as e:
+                      err = str(e)
+                      time.sleep(5 * (i + 1))
+              return None, err
+
+          def main(out='.'):
+              started = dt.datetime.now(dt.timezone.utc)
+              errors = []
+              res, e = post({'type': 'metaAndAssetCtxs'})
+              if not isinstance(res, list) or len(res) != 2 or not res[0].get('universe'):
+                  print('metaAndAssetCtxs failed:', e or 'unexpected reply'); return 1
+              meta, ctxs = res
+              if len(meta['universe']) != len(ctxs):
+                  print('meta and contexts disagree in length - not saved'); return 1
+              json.dump(meta, open(os.path.join(out, 'hl_meta.json'), 'w'), indent=1)
+              od = os.path.join(out, 'hl', 'ohlc')
+              os.makedirs(od, exist_ok=True)
+              for fn in os.listdir(od): os.remove(os.path.join(od, fn))
+              rows = []
+              for a, c in zip(meta['universe'], ctxs):
+                  if a.get('isDelisted'): continue
+                  rows.append([a['name'], c.get('markPx'), c.get('oraclePx'), c.get('midPx'), c.get('prevDayPx'),
+                               c.get('dayNtlVlm'), c.get('funding'), c.get('openInterest'), a.get('maxLeverage')])
+              with open(os.path.join(out, 'hl', 'ticker.csv'), 'w') as f:
+                  f.write('coin,mark,oracle,mid,prev_day,vol24h_usd,funding_1h,open_interest,max_leverage\n')
+                  for r in rows: f.write(','.join('' if x is None else str(x) for x in r) + '\n')
+              end = int(started.timestamp() * 1000)
+              start = end - DAYS * 86400 * 1000
+              got, fails = 0, 0
+              for r in rows:
+                  coin = r[0]
+                  if fails >= 8:
+                      errors.append('candles {}: skipped - Hyperliquid failing repeatedly'.format(coin)); continue
+                  bars, e = post({'type': 'candleSnapshot',
+                                  'req': {'coin': coin, 'interval': '1d', 'startTime': start, 'endTime': end}})
+                  time.sleep(PAUSE)
+                  if not isinstance(bars, list) or not bars:
+                      if e: fails += 1
+                      errors.append('candles {}: {}'.format(coin, e or 'empty')); continue
+                  fails = 0
+                  with open(os.path.join(out, 'hl', 'ohlc', coin + '.csv'), 'w') as f:
+                      f.write('t,o,h,l,c,v,n\n')
+                      for b in sorted(bars, key=lambda b: int(b['t'])):
+                          f.write('{},{},{},{},{},{},{}\n'.format(int(b['t']) // 1000, b['o'], b['h'], b['l'],
+                                                                   b['c'], b['v'], b.get('n', '')))
+                  got += 1
+              m = {'fetched_utc': started.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                   'finished_utc': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                   'perps': len(rows), 'ohlc_perps': got, 'errors': errors}
+              json.dump(m, open(os.path.join(out, 'hl', 'meta.json'), 'w'), indent=1)
+              print(json.dumps(m, indent=1))
+              return 0 if got else 1
+
+          if __name__ == '__main__':
+              sys.exit(main(*sys.argv[1:2]))
+          PYEOF
+          python3 /tmp/hl.py .
+
+      - name: Save to the data branch (one version, replaced each hour)
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q --orphan feed-tmp
+          git rm -r -q --cached .github 2>/dev/null || true
+          git add -A -- . ':!.github'
+          git commit -q -m "feed $(date -u +%Y-%m-%dT%H:%MZ)"
+          for i in 1 2 3; do
+            git push -q --force-with-lease=data:${DATA_SHA} origin feed-tmp:refs/heads/data && exit 0
+            sleep 10
+          done
+          exit 1
+
+      - name: Keep the hourly schedule switched on
+        # GitHub switches off schedules in public repositories after 60 days without activity on the main
+        # branch, and this job only ever writes to the data branch. Once a day, re-confirm it is enabled.
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(date -u +%H)" = "00" ]; then
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/feed.yml/enable" && echo "schedule kept on" || echo "keep-alive call failed (not fatal)"
+          fi
+
+      - name: Mark the run failed if an exchange failed (so GitHub emails you)
+        if: always() && (steps.kraken.outcome != 'success' || steps.hl.outcome != 'success')
+        run: |
+          echo "Kraken: ${{ steps.kraken.outcome }}   Hyperliquid: ${{ steps.hl.outcome }}"
+          exit 1
