@@ -1,0 +1,247 @@
+# Fundamentals feed for C's spot engine - weekly, Mondays 05:20 UTC (before the 09:05 London brief), or by hand.
+# Free public sources only, saved with a date so trends can be measured over time. Nothing is scored here.
+#   fundamentals/<date>/cg_markets.json    CoinGecko top 500: price, market cap, FDV, circulating/total/max supply,
+#                                           all-time high, 30d/200d/1y change
+#   fundamentals/<date>/cg_categories.json CoinGecko coin ids in: meme, layer-1, layer-2, DeFi, AI, RWA, gaming
+#   fundamentals/<date>/llama_protocols.json DefiLlama protocols (trimmed): id, name, symbol, gecko_id, category,
+#                                           parent, TVL and its 1d/7d/1m change, chains
+#   fundamentals/<date>/llama_chains.json   DefiLlama chains: TVL, token symbol, gecko_id
+#   fundamentals/<date>/llama_fees.json     DefiLlama fees, revenue and holders' revenue per protocol and chain:
+#                                           last 24h/7d/30d/1y and the 30 days before (trimmed)
+#   fundamentals/<date>/llama_dexs.json     DefiLlama DEX and perp-DEX volume per protocol (usage), same windows
+#   fundamentals/<date>/llama_hacks.json    DefiLlama's exploit log, last 2 years (date, name, amount, technique)
+#   fundamentals/<date>/llama_stables.json  stablecoins held on each chain (money flowing in or out of a chain)
+#   fundamentals/<date>/l2beat.json         L2BEAT: every layer-2's value secured, stage and risk ratings
+#   fundamentals/<date>/fear_greed.json     alternative.me Crypto Fear & Greed index, last 90 days
+#   fundamentals/<date>/news.json           headlines from CoinDesk, The Block, Decrypt, Cointelegraph, Blockworks
+#   fundamentals/<date>/github.json         development activity: commits in the last 90 days across each project's
+#                                           most active GitHub repositories (orgs from DefiLlama)
+#   fundamentals/<date>/meta.json           when it ran, what each source returned, what failed
+#   fundamentals/latest.txt                 the newest date
+# Kept on a branch called "fundamentals"; each run adds one dated folder (about 1-2 MB). The main branch and the
+# price feed are never touched.
+name: fundamentals
+
+on:
+  schedule:
+    - cron: '20 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fundamentals
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch CoinGecko, DefiLlama and the other public sources
+        id: fetch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > /tmp/f.py <<'PYEOF'
+          import json, os, sys, time, urllib.request, urllib.error, datetime as dt
+          D = dt.datetime.now(dt.timezone.utc)
+          OUT = os.path.join('out', 'fundamentals', D.strftime('%Y-%m-%d'))
+          os.makedirs(OUT, exist_ok=True)
+          meta = {'fetched_utc': D.strftime('%Y-%m-%dT%H:%M:%SZ'), 'sources': {}, 'errors': [], 'warnings': []}
+          def get(url, tries=5, raw=False, headers=None):
+              err = None
+              for i in range(tries):
+                  try:
+                      h = {'User-Agent': 'fundamentals-feed/1.0 (github actions)', 'Accept': 'application/json'}
+                      h.update(headers or {})
+                      req = urllib.request.Request(url, headers=h)
+                      with urllib.request.urlopen(req, timeout=60) as r:
+                          body = r.read()
+                          if raw: return (body, dict(r.headers)), None
+                          return json.loads(body.decode()), None
+                  except urllib.error.HTTPError as e:
+                      err = 'HTTP {}'.format(e.code)
+                      time.sleep(30 * (i + 1) if e.code == 429 else 5 * (i + 1))
+                  except Exception as e:
+                      err = str(e); time.sleep(5 * (i + 1))
+              return None, err
+          def save(name, obj, n):
+              json.dump(obj, open(os.path.join(OUT, name), 'w'), separators=(',', ':'))
+              meta['sources'][name] = n
+          CG = 'https://api.coingecko.com/api/v3/'
+          # CoinGecko top 500 by market cap (the free API allows 250 a page)
+          rows = []
+          for page in (1, 2):
+              r, e = get(CG + 'coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page={}'
+                         '&price_change_percentage=30d,200d,1y'.format(page))
+              if r: rows += r
+              else: meta['errors'].append('coingecko markets page {}: {}'.format(page, e))
+              time.sleep(15)
+          keep = ('id', 'symbol', 'name', 'current_price', 'market_cap', 'market_cap_rank', 'fully_diluted_valuation',
+                  'total_volume', 'circulating_supply', 'total_supply', 'max_supply', 'ath', 'ath_change_percentage',
+                  'ath_date', 'price_change_percentage_30d_in_currency', 'price_change_percentage_200d_in_currency',
+                  'price_change_percentage_1y_in_currency', 'last_updated')
+          if rows: save('cg_markets.json', [{k: r.get(k) for k in keep} for r in rows], len(rows))
+          cats = {}
+          for c in ('meme-token', 'layer-1', 'layer-2', 'decentralized-finance-defi', 'artificial-intelligence',
+                    'real-world-assets-rwa', 'gaming'):
+              r, e = get(CG + 'coins/markets?vs_currency=usd&category={}&order=market_cap_desc&per_page=250&page=1'.format(c))
+              if r is not None: cats[c] = [x['id'] for x in r]
+              else: meta['errors'].append('coingecko category {}: {}'.format(c, e))
+              time.sleep(15)
+          if cats: save('cg_categories.json', cats, sum(len(v) for v in cats.values()))
+          # DefiLlama
+          L = 'https://api.llama.fi/'
+          r, e = get(L + 'protocols')
+          if r:
+              keep = ('id', 'name', 'symbol', 'gecko_id', 'category', 'parentProtocol', 'tvl', 'change_1d', 'change_7d',
+                      'change_1m', 'mcap', 'chains', 'listedAt', 'github')
+              protocols = r
+              save('llama_protocols.json', [{k: p.get(k) for k in keep} for p in r if (p.get('tvl') or 0) >= 1e6
+                                            or p.get('gecko_id') or p.get('parentProtocol')], len(r))
+          else: meta['errors'].append('defillama protocols: {}'.format(e))
+          r, e = get(L + 'v2/chains')
+          if r: save('llama_chains.json', r, len(r))
+          else: meta['errors'].append('defillama chains: {}'.format(e))
+          fees = {}
+          for dtype in ('dailyFees', 'dailyRevenue', 'dailyHoldersRevenue'):
+              r, e = get(L + 'overview/fees?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true&dataType=' + dtype)
+              if not r:
+                  meta['errors'].append('defillama {}: {}'.format(dtype, e)); continue
+              keep = ('name', 'displayName', 'slug', 'category', 'defillamaId', 'parentProtocol', 'module', 'chains',
+                      'total24h', 'total7d', 'total30d', 'total60dto30d', 'total1y', 'change_1m')
+              fees[dtype] = [{k: p.get(k) for k in keep} for p in r.get('protocols') or []]
+              time.sleep(3)
+          if fees: save('llama_fees.json', fees, {k: len(v) for k, v in fees.items()})
+          # ---- extra sources: a failure here is a warning, never a failed run
+          def warn(m): meta['warnings'].append(m)
+          r, e = get(L + 'overview/dexs?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true')
+          if r:
+              keep = ('name', 'displayName', 'slug', 'category', 'defillamaId', 'parentProtocol', 'total7d', 'total30d',
+                      'total60dto30d', 'total1y', 'change_1m')
+              dx = {'spot': [{k: p.get(k) for k in keep} for p in r.get('protocols') or []]}
+              r2, e2 = get(L + 'overview/derivatives?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true')
+              if r2: dx['perps'] = [{k: p.get(k) for k in keep} for p in r2.get('protocols') or []]
+              else: warn('defillama derivatives: {}'.format(e2))
+              save('llama_dexs.json', dx, {k: len(v) for k, v in dx.items()})
+          else: warn('defillama dexs: {}'.format(e))
+          r, e = get(L + 'hacks')
+          if r is not None:
+              cut = D.timestamp() - 730 * 86400
+              save('llama_hacks.json', [h for h in r if (h.get('date') or 0) >= cut], len(r))
+          else: warn('defillama hacks: {}'.format(e))
+          r, e = get('https://stablecoins.llama.fi/stablecoinchains')
+          if r: save('llama_stables.json', r, len(r))
+          else: warn('defillama stablecoins: {}'.format(e))
+          r, e = get('https://l2beat.com/api/scaling/summary')
+          if r and isinstance(r.get('projects'), dict):
+              out = {}
+              for k, p in r['projects'].items():
+                  tv = (p.get('tvs') or {}).get('breakdown') or {}
+                  out[k] = {'name': p.get('name'), 'slug': p.get('slug'), 'type': p.get('type'), 'category': p.get('category'),
+                            'stage': p.get('stage'), 'host': p.get('hostChain'), 'tvs': tv.get('total'),
+                            'tvs_native': tv.get('native'),
+                            'risks': [{'name': x.get('name'), 'sentiment': x.get('sentiment'), 'value': x.get('value')}
+                                      for x in p.get('risks') or [] if isinstance(x, dict)]}
+              save('l2beat.json', out, len(out))
+          else: warn('l2beat: {}'.format(e or 'unexpected reply'))
+          r, e = get('https://api.alternative.me/fng/?limit=90')
+          if r and r.get('data'): save('fear_greed.json', r['data'], len(r['data']))
+          else: warn('fear & greed: {}'.format(e or 'empty'))
+          import xml.etree.ElementTree as ET
+          news = []
+          for src, url in (('CoinDesk', 'https://www.coindesk.com/arc/outboundfeeds/rss/'),
+                           ('The Block', 'https://www.theblock.co/rss.xml'),
+                           ('Decrypt', 'https://decrypt.co/feed'),
+                           ('Cointelegraph', 'https://cointelegraph.com/rss'),
+                           ('Blockworks', 'https://blockworks.co/feed')):
+              b, e = get(url, tries=3, raw=True, headers={'Accept': 'application/rss+xml, application/xml, text/xml'})
+              if not b: warn('news {}: {}'.format(src, e)); continue
+              try:
+                  root = ET.fromstring(b[0])
+                  n0 = len(news)
+                  for it in root.iter('item'):
+                      news.append({'source': src, 'title': (it.findtext('title') or '').strip(),
+                                   'link': (it.findtext('link') or '').strip(), 'date': (it.findtext('pubDate') or '').strip()})
+                  if len(news) == n0: warn('news {}: no items'.format(src))
+              except ET.ParseError as x:
+                  warn('news {}: not valid RSS ({})'.format(src, x))
+          if news: save('news.json', news, len(news))
+          # development activity: each protocol's GitHub orgs (from DefiLlama), their 3 most recently pushed repos,
+          # commits in the last 90 days. Uses the workflow's own token (1,000 calls an hour), so a budget of 800.
+          tok = os.environ.get('GH_TOKEN')
+          if tok and 'llama_protocols.json' in meta['sources']:
+              gh = {'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json'}
+              top = {x['symbol'].upper() for x in rows[:300]} if rows else set()
+              orgs = {}
+              for p in protocols:
+                  sym = (p.get('symbol') or '').upper()
+                  if sym in top and p.get('github'):
+                      for o in p['github'][:2]:
+                          if o and o not in orgs.setdefault(sym, []) and len(orgs[sym]) < 2: orgs[sym].append(o)
+              since = (D - dt.timedelta(days=90)).strftime('%Y-%m-%dT%H:%M:%SZ')
+              calls, dev = 0, {}
+              import re
+              for sym, os_ in sorted(orgs.items()):
+                  if calls > 800: warn('github: call budget used up at {}'.format(sym)); break
+                  tot, repos = 0, []
+                  for o in os_:
+                      lst, e = get('https://api.github.com/orgs/{}/repos?sort=pushed&per_page=3'.format(o), tries=2, headers=gh); calls += 1
+                      if lst is None:
+                          lst, e = get('https://api.github.com/users/{}/repos?sort=pushed&per_page=3'.format(o), tries=2, headers=gh); calls += 1
+                      for rp in (lst or [])[:3]:
+                          if any(x['repo'] == rp['full_name'] for x in repos): continue
+                          b, e = get('https://api.github.com/repos/{}/commits?since={}&per_page=1'.format(rp['full_name'], since),
+                                     tries=2, raw=True, headers=gh); calls += 1
+                          if not b: continue
+                          n = 0
+                          m = re.search(r'[?&]page=(\d+)>; rel="last"', b[1].get('Link') or b[1].get('link') or '')
+                          if m: n = int(m.group(1))
+                          else:
+                              try: n = len(json.loads(b[0].decode()))
+                              except ValueError: n = 0
+                          tot += n; repos.append({'repo': rp['full_name'], 'commits_90d': n, 'pushed_at': rp.get('pushed_at')})
+                  dev[sym] = {'orgs': os_, 'commits_90d': tot, 'repos': repos}
+              save('github.json', dev, len(dev))
+          elif not tok: warn('github: no token')
+          json.dump(meta, open(os.path.join(OUT, 'meta.json'), 'w'), indent=1)
+          print(json.dumps(meta, indent=1))
+          ok = 'cg_markets.json' in meta['sources'] and 'llama_fees.json' in meta['sources']
+          sys.exit(0 if ok and not meta['errors'] else 2 if ok else 1)
+          PYEOF
+          set +e
+          python3 /tmp/f.py
+          echo "rc=$?" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Save to the fundamentals branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          D=$(ls out/fundamentals | sort | tail -1)
+          test -n "$D" || { echo "nothing fetched"; exit 1; }
+          if git fetch -q --depth 1 origin fundamentals; then
+            git checkout -q -B fund-tmp FETCH_HEAD
+          else
+            git checkout -q --orphan fund-tmp
+            git rm -r -q --cached . 2>/dev/null || true
+            git clean -fdq -e out
+          fi
+          mkdir -p fundamentals
+          rm -rf "fundamentals/$D"
+          cp -r "out/fundamentals/$D" "fundamentals/$D"
+          echo "$D" > fundamentals/latest.txt
+          git add fundamentals
+          git commit -q -m "fundamentals $D"
+          for i in 1 2 3; do git push -q origin fund-tmp:refs/heads/fundamentals && exit 0; sleep 10; git pull -q --rebase origin fundamentals; done
+          exit 1
+
+      - name: Mark the run failed if a source failed (so GitHub emails you)
+        if: steps.fetch.outputs.rc != '0'
+        run: |
+          echo "fetch exit code ${{ steps.fetch.outputs.rc }} - see meta.json errors"
+          exit 1
