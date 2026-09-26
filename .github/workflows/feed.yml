@@ -8,7 +8,10 @@
 #   raw/ticker.json    Kraken's untouched ticker reply, for proof
 #   hl_meta.json       Hyperliquid perp list with max leverage (Hyperliquid's "meta" reply, untouched)
 #   hl/ticker.csv      every Hyperliquid perp: mark, oracle, mid, previous-day price, 24h volume, funding, OI
-#   hl/ohlc/COIN.csv   Hyperliquid daily candles (last 120 UTC days) for every perp; last row = today so far
+#   hl/ohlc/COIN.csv   Hyperliquid daily candles (last 250 UTC days) for every main-exchange perp; last row = today
+#   hl/hip3.csv        every market on Hyperliquid's builder exchanges (HIP-3: stocks, indices, commodities...)
+#   hl/ohlc/DEX__COIN.csv  daily candles for HIP-3 markets trading at least $250k a day (e.g. xyz__TSLA.csv)
+#   hl/dexes.json      the HIP-3 exchanges (Hyperliquid's perpDexs reply, untouched)
 #   hl/meta.json       Hyperliquid run: when, what failed
 #
 # The data is saved to a separate branch called "data", which keeps ONE version (each run replaces the
@@ -33,7 +36,7 @@ concurrency:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
 
@@ -176,13 +179,14 @@ jobs:
       - name: Hyperliquid
         id: hl
         continue-on-error: true
-        timeout-minutes: 15
+        timeout-minutes: 28
         run: |
           cat > /tmp/hl.py <<'PYEOF'
           import json, os, sys, time, urllib.request, urllib.error, datetime as dt
 
           API = 'https://api.hyperliquid.xyz/info'
-          DAYS = 120                  # daily candles kept per perp
+          DAYS = 250                  # daily candles kept per market
+          HIP3_MIN_VOL = 250000       # HIP-3 markets below this 24h USD volume are listed but get no candles
           PAUSE = 1.6                 # seconds between candle calls: each costs ~22 of the 1,200/minute allowance
 
           def post(body, tries=5):
@@ -225,27 +229,60 @@ jobs:
                   for r in rows: f.write(','.join('' if x is None else str(x) for x in r) + '\n')
               end = int(started.timestamp() * 1000)
               start = end - DAYS * 86400 * 1000
-              got, fails = 0, 0
-              for r in rows:
-                  coin = r[0]
-                  if fails >= 8:
-                      errors.append('candles {}: skipped - Hyperliquid failing repeatedly'.format(coin)); continue
+              state = {'fails': 0}
+              def candles(coin, fname):
+                  if state['fails'] >= 8:
+                      errors.append('candles {}: skipped - Hyperliquid failing repeatedly'.format(coin)); return 0
                   bars, e = post({'type': 'candleSnapshot',
                                   'req': {'coin': coin, 'interval': '1d', 'startTime': start, 'endTime': end}})
                   time.sleep(PAUSE)
                   if not isinstance(bars, list) or not bars:
-                      if e: fails += 1
-                      errors.append('candles {}: {}'.format(coin, e or 'empty')); continue
-                  fails = 0
-                  with open(os.path.join(out, 'hl', 'ohlc', coin + '.csv'), 'w') as f:
+                      if e: state['fails'] += 1
+                      errors.append('candles {}: {}'.format(coin, e or 'empty')); return 0
+                  state['fails'] = 0
+                  with open(os.path.join(out, 'hl', 'ohlc', fname), 'w') as f:
                       f.write('t,o,h,l,c,v,n\n')
                       for b in sorted(bars, key=lambda b: int(b['t'])):
                           f.write('{},{},{},{},{},{},{}\n'.format(int(b['t']) // 1000, b['o'], b['h'], b['l'],
                                                                    b['c'], b['v'], b.get('n', '')))
-                  got += 1
+                  return 1
+              got = sum(candles(r[0], r[0] + '.csv') for r in rows)
+              # HIP-3 builder exchanges (stocks, indices, commodities, ...): list every market, candles for the liquid ones
+              dexes, e = post({'type': 'perpDexs'})
+              hip3, got3 = [], 0
+              if not isinstance(dexes, list):
+                  errors.append('perpDexs: {}'.format(e or 'unexpected reply'))
+              else:
+                  json.dump(dexes, open(os.path.join(out, 'hl', 'dexes.json'), 'w'), indent=1)
+                  for dx in dexes:
+                      if not isinstance(dx, dict) or not dx.get('name'): continue     # null = the main exchange
+                      name = dx['name']
+                      res3, e = post({'type': 'metaAndAssetCtxs', 'dex': name})
+                      time.sleep(PAUSE)
+                      if (not isinstance(res3, list) or len(res3) != 2 or not isinstance(res3[0], dict)
+                              or len(res3[0].get('universe') or []) != len(res3[1] or [])):
+                          errors.append('dex {}: {}'.format(name, e or 'unexpected reply')); continue
+                      for a, c in zip(res3[0]['universe'], res3[1]):
+                          if a.get('isDelisted') or not a.get('name'): continue
+                          coin = a['name'] if ':' in a['name'] else name + ':' + a['name']
+                          hip3.append([name, dx.get('fullName', ''), coin, c.get('markPx'), c.get('oraclePx'),
+                                       c.get('midPx'), c.get('prevDayPx'), c.get('dayNtlVlm'), c.get('funding'),
+                                       c.get('openInterest'), a.get('maxLeverage'), a.get('onlyIsolated', ''),
+                                       a.get('growthMode', ''), a.get('marginMode', '')])
+                  with open(os.path.join(out, 'hl', 'hip3.csv'), 'w') as f:
+                      f.write('dex,dex_name,coin,mark,oracle,mid,prev_day,vol24h_usd,funding_1h,open_interest,'
+                              'max_leverage,only_isolated,growth_mode,margin_mode\n')
+                      for r in hip3:
+                          f.write(','.join('' if x is None else str(x).replace(',', ' ') for x in r) + '\n')
+                  for r in hip3:
+                      try: vol = float(r[7] or 0)
+                      except ValueError: vol = 0
+                      if vol >= HIP3_MIN_VOL:
+                          got3 += candles(r[2], r[2].replace(':', '__') + '.csv')
               m = {'fetched_utc': started.strftime('%Y-%m-%dT%H:%M:%SZ'),
                    'finished_utc': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                   'perps': len(rows), 'ohlc_perps': got, 'errors': errors}
+                   'perps': len(rows), 'ohlc_perps': got, 'hip3_markets': len(hip3), 'hip3_ohlc': got3,
+                   'errors': errors}
               json.dump(m, open(os.path.join(out, 'hl', 'meta.json'), 'w'), indent=1)
               print(json.dumps(m, indent=1))
               return 0 if got else 1
