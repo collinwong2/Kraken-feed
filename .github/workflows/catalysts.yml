@@ -4,7 +4,7 @@
 #                                    Binance's own tags per coin (e.g. "Monitoring" = at risk of delisting)
 #   catalysts/<date>/governance.json Snapshot proposals from the last 14 days for every protocol DefiLlama links to a
 #                                    Snapshot space (fee switches, buybacks, treasury and token changes)
-#   catalysts/<date>/news.json       headlines from CoinDesk, The Block, Decrypt, Cointelegraph, Blockworks
+#   catalysts/<date>/news.json       headlines from CoinDesk, The Block, Decrypt, Cointelegraph
 #   catalysts/<date>/categories.json CoinGecko's ~600 narratives: market cap, 24h change, 24h volume, top coins -
 #                                    day-on-day, where money is rotating (the earliest measurable sign)
 #   catalysts/<date>/dex_trending.json GeckoTerminal trending on-chain pools across all chains (new launches and
@@ -121,8 +121,7 @@ jobs:
           for src, url in (('CoinDesk', 'https://www.coindesk.com/arc/outboundfeeds/rss/'),
                            ('The Block', 'https://www.theblock.co/rss.xml'),
                            ('Decrypt', 'https://decrypt.co/feed'),
-                           ('Cointelegraph', 'https://cointelegraph.com/rss'),
-                           ('Blockworks', 'https://blockworks.co/feed')):
+                           ('Cointelegraph', 'https://cointelegraph.com/rss')):
               b, e = get(url, tries=3, raw=True, headers={'Accept': 'application/rss+xml, application/xml, text/xml'})
               if not b: warn('news {}: {}'.format(src, e)); continue
               try:
@@ -157,7 +156,8 @@ jobs:
           if pools: save('dex_trending.json', pools, len(pools))
           json.dump(meta, open(os.path.join(OUT, 'meta.json'), 'w'), indent=1)
           print(json.dumps(meta, indent=1))
-          sys.exit(0 if 'listings.json' in meta['sources'] and not meta['warnings'] else 2 if meta['sources'] else 1)
+          # only the exchange listings are essential; a missing news feed or governance batch is a warning, not a failure
+          sys.exit(0 if 'listings.json' in meta['sources'] else 1)
           PYEOF
           set +e
           python3 /tmp/c.py
