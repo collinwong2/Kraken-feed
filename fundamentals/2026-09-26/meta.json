@@ -1,5 +1,5 @@
 {
- "fetched_utc": "2026-09-26T17:23:21Z",
+ "fetched_utc": "2026-09-26T18:09:24Z",
  "sources": {
   "cg_markets.json": 500,
   "cg_categories.json": 1627,
@@ -21,8 +21,5 @@
   "github.json": 30
  },
  "errors": [],
- "warnings": [
-  "defillama derivatives: HTTP 402",
-  "news Blockworks: no items"
- ]
+ "warnings": []
 }
