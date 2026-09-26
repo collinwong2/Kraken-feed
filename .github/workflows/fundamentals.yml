@@ -8,12 +8,12 @@
 #   fundamentals/<date>/llama_chains.json   DefiLlama chains: TVL, token symbol, gecko_id
 #   fundamentals/<date>/llama_fees.json     DefiLlama fees, revenue and holders' revenue per protocol and chain:
 #                                           last 24h/7d/30d/1y and the 30 days before (trimmed)
-#   fundamentals/<date>/llama_dexs.json     DefiLlama DEX and perp-DEX volume per protocol (usage), same windows
+#   fundamentals/<date>/llama_dexs.json     DefiLlama DEX volume per protocol (usage), same windows
 #   fundamentals/<date>/llama_hacks.json    DefiLlama's exploit log, last 2 years (date, name, amount, technique)
 #   fundamentals/<date>/llama_stables.json  stablecoins held on each chain (money flowing in or out of a chain)
 #   fundamentals/<date>/l2beat.json         L2BEAT: every layer-2's value secured, stage and risk ratings
 #   fundamentals/<date>/fear_greed.json     alternative.me Crypto Fear & Greed index, last 90 days
-#   fundamentals/<date>/news.json           headlines from CoinDesk, The Block, Decrypt, Cointelegraph, Blockworks
+#   fundamentals/<date>/news.json           headlines from CoinDesk, The Block, Decrypt, Cointelegraph
 #   fundamentals/<date>/github.json         development activity: commits in the last 90 days across each project's
 #                                           most active GitHub repositories (orgs from DefiLlama)
 #   fundamentals/<date>/meta.json           when it ran, what each source returned, what failed
@@ -124,9 +124,6 @@ jobs:
               keep = ('name', 'displayName', 'slug', 'category', 'defillamaId', 'parentProtocol', 'total7d', 'total30d',
                       'total60dto30d', 'total1y', 'change_1m')
               dx = {'spot': [{k: p.get(k) for k in keep} for p in r.get('protocols') or []]}
-              r2, e2 = get(L + 'overview/derivatives?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true')
-              if r2: dx['perps'] = [{k: p.get(k) for k in keep} for p in r2.get('protocols') or []]
-              else: warn('defillama derivatives: {}'.format(e2))
               save('llama_dexs.json', dx, {k: len(v) for k, v in dx.items()})
           else: warn('defillama dexs: {}'.format(e))
           r, e = get(L + 'hacks')
@@ -157,8 +154,7 @@ jobs:
           for src, url in (('CoinDesk', 'https://www.coindesk.com/arc/outboundfeeds/rss/'),
                            ('The Block', 'https://www.theblock.co/rss.xml'),
                            ('Decrypt', 'https://decrypt.co/feed'),
-                           ('Cointelegraph', 'https://cointelegraph.com/rss'),
-                           ('Blockworks', 'https://blockworks.co/feed')):
+                           ('Cointelegraph', 'https://cointelegraph.com/rss')):
               b, e = get(url, tries=3, raw=True, headers={'Accept': 'application/rss+xml, application/xml, text/xml'})
               if not b: warn('news {}: {}'.format(src, e)); continue
               try:
