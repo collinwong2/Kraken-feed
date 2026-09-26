@@ -1,0 +1,193 @@
+# Catalysts feed for C's spot engine - daily at 05:30 UTC (before the 09:05 London brief), or by hand.
+# It saves what the exchanges and governance forums themselves publish, so the engine can spot what CHANGED:
+#   catalysts/<date>/listings.json   every spot market on Binance, Coinbase and Upbit (with Upbit's warning flag), and
+#                                    Binance's own tags per coin (e.g. "Monitoring" = at risk of delisting)
+#   catalysts/<date>/governance.json Snapshot proposals from the last 14 days for every protocol DefiLlama links to a
+#                                    Snapshot space (fee switches, buybacks, treasury and token changes)
+#   catalysts/<date>/news.json       headlines from CoinDesk, The Block, Decrypt, Cointelegraph, Blockworks
+#   catalysts/<date>/categories.json CoinGecko's ~600 narratives: market cap, 24h change, 24h volume, top coins -
+#                                    day-on-day, where money is rotating (the earliest measurable sign)
+#   catalysts/<date>/dex_trending.json GeckoTerminal trending on-chain pools across all chains (new launches and
+#                                    meme waves before any exchange lists them - watch-only)
+#   catalysts/<date>/meta.json       when it ran, what each source returned, what failed
+#   catalysts/latest.txt             the newest date
+# Nothing is judged here: the engine compares today with earlier days (a new listing, a new "Monitoring" tag, a
+# delisting, a passed fee-switch vote). Kept on a branch called "catalysts"; the price feed is never touched.
+name: catalysts
+
+on:
+  schedule:
+    - cron: '30 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: catalysts
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch listings, governance and news
+        id: fetch
+        run: |
+          cat > /tmp/c.py <<'PYEOF'
+          import json, os, sys, time, urllib.request, urllib.error, datetime as dt
+          import xml.etree.ElementTree as ET
+          D = dt.datetime.now(dt.timezone.utc)
+          OUT = os.path.join('out', 'catalysts', D.strftime('%Y-%m-%d'))
+          os.makedirs(OUT, exist_ok=True)
+          meta = {'fetched_utc': D.strftime('%Y-%m-%dT%H:%M:%SZ'), 'sources': {}, 'warnings': []}
+          def get(url, tries=4, raw=False, data=None, headers=None):
+              err = None
+              for i in range(tries):
+                  try:
+                      h = {'User-Agent': 'catalysts-feed/1.0 (github actions)', 'Accept': 'application/json'}
+                      h.update(headers or {})
+                      req = urllib.request.Request(url, data=data, headers=h)
+                      with urllib.request.urlopen(req, timeout=60) as r:
+                          body = r.read()
+                          return (body if raw else json.loads(body.decode())), None
+                  except urllib.error.HTTPError as e:
+                      err = 'HTTP {}'.format(e.code); time.sleep(20 * (i + 1) if e.code == 429 else 5 * (i + 1))
+                  except Exception as e:
+                      err = str(e); time.sleep(5 * (i + 1))
+              return None, err
+          def warn(m): meta['warnings'].append(m)
+          def save(name, obj, n):
+              json.dump(obj, open(os.path.join(OUT, name), 'w'), separators=(',', ':'))
+              meta['sources'][name] = n
+          # ---- exchange listings
+          lst = {}
+          r, e = get('https://data-api.binance.vision/api/v3/exchangeInfo?permissions=SPOT')
+          if r and r.get('symbols'):
+              lst['binance'] = [{'symbol': s['symbol'], 'base': s['baseAsset'], 'quote': s['quoteAsset'], 'status': s['status']}
+                                for s in r['symbols']]
+          else: warn('binance exchangeInfo: {}'.format(e or 'unexpected reply'))
+          r, e = get('https://www.binance.com/bapi/asset/v2/public/asset-service/product/get-products?includeEtf=true')
+          if r and isinstance(r.get('data'), list):
+              tags = {}
+              for p in r['data']:
+                  b = p.get('b')
+                  if b and p.get('tags'): tags[b] = sorted(set(tags.get(b, [])) | set(p['tags']))
+              lst['binance_tags'] = tags
+          else: warn('binance tags: {}'.format(e or 'unexpected reply'))
+          r, e = get('https://api.exchange.coinbase.com/products')
+          if isinstance(r, list):
+              lst['coinbase'] = [{'id': p.get('id'), 'base': p.get('base_currency'), 'quote': p.get('quote_currency'),
+                                  'status': p.get('status'), 'trading_disabled': p.get('trading_disabled'),
+                                  'cancel_only': p.get('cancel_only'), 'limit_only': p.get('limit_only')} for p in r]
+          else: warn('coinbase products: {}'.format(e or 'unexpected reply'))
+          r, e = get('https://api.upbit.com/v1/market/all?is_details=true')
+          if isinstance(r, list):
+              lst['upbit'] = [{'market': m.get('market'), 'name': m.get('english_name'),
+                               'warning': m.get('market_warning') or (m.get('market_event') or {}).get('warning'),
+                               'caution': (m.get('market_event') or {}).get('caution')} for m in r]
+          else: warn('upbit markets: {}'.format(e or 'unexpected reply'))
+          if lst: save('listings.json', lst, {k: len(v) for k, v in lst.items()})
+          # ---- governance: Snapshot spaces that DefiLlama links to protocols
+          r, e = get('https://api.llama.fi/protocols')
+          spaces = {}
+          if r:
+              for p in r:
+                  for g in p.get('governanceID') or []:
+                      if isinstance(g, str) and g.startswith('snapshot:'):
+                          spaces.setdefault(g.split(':', 1)[1], p.get('symbol') or p.get('name'))
+          else: warn('defillama protocols (for governance spaces): {}'.format(e))
+          props = []
+          sp = sorted(spaces)
+          since = int((D - dt.timedelta(days=14)).timestamp())
+          for i in range(0, len(sp), 50):
+              q = {'query': 'query($s:[String],$t:Int){proposals(first:1000,where:{space_in:$s,created_gte:$t},'
+                            'orderBy:"created",orderDirection:desc){id title state start end created choices scores '
+                            'scores_total link space{id}}}', 'variables': {'s': sp[i:i + 50], 't': since}}
+              r, e = get('https://hub.snapshot.org/graphql', data=json.dumps(q).encode(),
+                         headers={'Content-Type': 'application/json'})
+              if r and 'data' in r:
+                  for x in r['data'].get('proposals') or []:
+                      x['symbol'] = spaces.get((x.get('space') or {}).get('id'))
+                      props.append(x)
+              else: warn('snapshot batch {}: {}'.format(i // 50, e or (r or {}).get('errors')))
+              time.sleep(2)
+          if spaces: save('governance.json', {'spaces': spaces, 'proposals': props}, len(props))
+          # ---- news headlines
+          news = []
+          for src, url in (('CoinDesk', 'https://www.coindesk.com/arc/outboundfeeds/rss/'),
+                           ('The Block', 'https://www.theblock.co/rss.xml'),
+                           ('Decrypt', 'https://decrypt.co/feed'),
+                           ('Cointelegraph', 'https://cointelegraph.com/rss'),
+                           ('Blockworks', 'https://blockworks.co/feed')):
+              b, e = get(url, tries=3, raw=True, headers={'Accept': 'application/rss+xml, application/xml, text/xml'})
+              if not b: warn('news {}: {}'.format(src, e)); continue
+              try:
+                  n0 = len(news)
+                  for it in ET.fromstring(b).iter('item'):
+                      news.append({'source': src, 'title': (it.findtext('title') or '').strip(),
+                                   'link': (it.findtext('link') or '').strip(), 'date': (it.findtext('pubDate') or '').strip()})
+                  if len(news) == n0: warn('news {}: no items'.format(src))
+              except ET.ParseError as x:
+                  warn('news {}: not valid RSS ({})'.format(src, x))
+          if news: save('news.json', news, len(news))
+          # ---- narratives: CoinGecko categories and on-chain trending pools
+          r, e = get('https://api.coingecko.com/api/v3/coins/categories?order=market_cap_desc')
+          if isinstance(r, list):
+              save('categories.json', [{k: c.get(k) for k in ('id', 'name', 'market_cap', 'market_cap_change_24h',
+                                                               'volume_24h', 'top_3_coins_id', 'updated_at')} for c in r], len(r))
+          else: warn('coingecko categories: {}'.format(e or 'unexpected reply'))
+          pools = []
+          for page in (1, 2, 3):
+              r, e = get('https://api.geckoterminal.com/api/v2/networks/trending_pools?page={}'.format(page),
+                         headers={'Accept': 'application/json;version=20230302'})
+              if not r or 'data' not in r:
+                  warn('geckoterminal trending page {}: {}'.format(page, e or 'unexpected reply')); break
+              for p in r['data']:
+                  a = p.get('attributes') or {}
+                  pools.append({'name': a.get('name'), 'network': ((p.get('relationships') or {}).get('network') or {}).get('data', {}).get('id')
+                                or (p.get('id') or '').split('_')[0], 'fdv_usd': a.get('fdv_usd'),
+                                'reserve_usd': a.get('reserve_in_usd'), 'created': a.get('pool_created_at'),
+                                'vol24h': (a.get('volume_usd') or {}).get('h24'),
+                                'chg24h': (a.get('price_change_percentage') or {}).get('h24')})
+              time.sleep(3)
+          if pools: save('dex_trending.json', pools, len(pools))
+          json.dump(meta, open(os.path.join(OUT, 'meta.json'), 'w'), indent=1)
+          print(json.dumps(meta, indent=1))
+          sys.exit(0 if 'listings.json' in meta['sources'] and not meta['warnings'] else 2 if meta['sources'] else 1)
+          PYEOF
+          set +e
+          python3 /tmp/c.py
+          echo "rc=$?" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Save to the catalysts branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          D=$(ls out/catalysts | sort | tail -1)
+          test -n "$D" || { echo "nothing fetched"; exit 1; }
+          if git fetch -q --depth 1 origin catalysts; then
+            git checkout -q -B cat-tmp FETCH_HEAD
+          else
+            git checkout -q --orphan cat-tmp
+            git rm -r -q --cached . 2>/dev/null || true
+            git clean -fdq -e out
+          fi
+          mkdir -p catalysts
+          rm -rf "catalysts/$D"
+          cp -r "out/catalysts/$D" "catalysts/$D"
+          echo "$D" > catalysts/latest.txt
+          git add catalysts
+          git commit -q -m "catalysts $D"
+          for i in 1 2 3; do git push -q origin cat-tmp:refs/heads/catalysts && exit 0; sleep 10; git pull -q --rebase origin catalysts; done
+          exit 1
+
+      - name: Mark the run failed if a source failed (so GitHub emails you)
+        if: steps.fetch.outputs.rc != '0'
+        run: |
+          echo "fetch exit code ${{ steps.fetch.outputs.rc }} - see meta.json warnings"
+          exit 1
