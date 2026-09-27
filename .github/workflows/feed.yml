@@ -6,12 +6,14 @@
 #   ticker.csv         every Kraken USD pair: live price, today's open/high/low/volume, 24h range, bid, ask
 #   ohlc/PAIR.csv      Kraken daily candles (up to 720 days) for the engine's watchlist; last row = today so far
 #   raw/ticker.json    Kraken's untouched ticker reply, for proof
+#   h4/PAIR.csv        Kraken 4-hour candles (last ~120 days) for the watchlist; last row = the forming 4h bar
 #   hl_meta.json       Hyperliquid perp list with max leverage (Hyperliquid's "meta" reply, untouched)
 #   hl/ticker.csv      every Hyperliquid perp: mark, oracle, mid, previous-day price, 24h volume, funding, OI
 #   hl/ohlc/COIN.csv   Hyperliquid daily candles (last 250 UTC days) for every main-exchange perp; last row = today
 #   hl/hip3.csv        every market on Hyperliquid's builder exchanges (HIP-3: stocks, indices, commodities...)
 #   hl/ohlc/DEX__COIN.csv  daily candles for HIP-3 markets trading at least $250k a day (e.g. xyz__TSLA.csv)
 #   hl/dexes.json      the HIP-3 exchanges (Hyperliquid's perpDexs reply, untouched)
+#   hl/h4/COIN.csv     Hyperliquid 4-hour candles (last 60 bars) for main perps trading at least $2m a day
 #   hl/meta.json       Hyperliquid run: when, what failed
 #
 # The data is saved to a separate branch called "data", which keeps ONE version (each run replaces the
@@ -54,7 +56,7 @@ jobs:
       - name: Kraken
         id: kraken
         continue-on-error: true
-        timeout-minutes: 10
+        timeout-minutes: 16
         env:
           PAIRS: >-
             XBTUSD ETHUSD SOLUSD XRPUSD BNBUSD DOGEUSD ADAUSD LINKUSD AVAXUSD LTCUSD BCHUSD TRXUSD
@@ -141,6 +143,10 @@ jobs:
               od = os.path.join(out, 'ohlc')
               os.makedirs(od, exist_ok=True)
               for fn in os.listdir(od): os.remove(os.path.join(od, fn))
+              h4d = os.path.join(out, 'h4')
+              os.makedirs(h4d, exist_ok=True)
+              for fn in os.listdir(h4d): os.remove(os.path.join(h4d, fn))
+              got4 = 0
               got, missing, fails = 0, [], 0
               for n in PAIRS:
                   k = key_of.get(n)
@@ -159,11 +165,21 @@ jobs:
                       f.write('t,o,h,l,c,vwap,v,count\n')
                       for b in bars: f.write(','.join(str(x) for x in b) + '\n')
                   got += 1
+                  # 4-hour candles for the momentum-bar book; a failure here is noted, never fatal
+                  res4, e4 = get('OHLC?pair={}&interval=240'.format(k))
+                  time.sleep(1.2)
+                  bars4 = res4 and next((v for kk, v in res4.items() if kk != 'last'), None)
+                  if bars4:
+                      with open(os.path.join(h4d, n + '.csv'), 'w') as f:
+                          f.write('t,o,h,l,c,vwap,v,count\n')
+                          for b in bars4: f.write(','.join(str(x) for x in b) + '\n')
+                      got4 += 1
+                  else: errors.append('OHLC 4h {}: {}'.format(n, e4 or 'empty'))
               meta = {'fetched_utc': started.strftime('%Y-%m-%dT%H:%M:%SZ'),
                       'finished_utc': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
                       'kraken_server_time': (srv or {}).get('rfc1123'),
                       'kraken_unixtime': (srv or {}).get('unixtime'),
-                      'ticker_pairs': len(rows), 'ohlc_pairs': got, 'ohlc_requested': len(PAIRS),
+                      'ticker_pairs': len(rows), 'ohlc_pairs': got, 'h4_pairs': got4, 'ohlc_requested': len(PAIRS),
                       'not_on_kraken': missing,
                       'not_online': {n: status[n] for n in PAIRS if status.get(n, 'online') != 'online'},
                       'errors': errors}
@@ -188,6 +204,7 @@ jobs:
           DAYS = 250                  # daily candles kept per market
           HIP3_MIN_VOL = 250000       # HIP-3 markets below this 24h USD volume are listed but get no candles
           PAUSE = 1.6                 # seconds between candle calls: each costs ~22 of the 1,200/minute allowance
+          H4_MIN_VOL = 2000000        # main perps below this 24h USD volume get no 4-hour candles
 
           def post(body, tries=5):
               err = None
@@ -247,6 +264,28 @@ jobs:
                                                                    b['c'], b['v'], b.get('n', '')))
                   return 1
               got = sum(candles(r[0], r[0] + '.csv') for r in rows)
+              # 4-hour candles (last 60 bars) for liquid main perps - the momentum-bar book
+              h4d = os.path.join(out, 'hl', 'h4')
+              os.makedirs(h4d, exist_ok=True)
+              for fn in os.listdir(h4d): os.remove(os.path.join(h4d, fn))
+              got4 = 0
+              for r in rows:
+                  try: vol = float(r[5] or 0)
+                  except ValueError: vol = 0
+                  if vol < H4_MIN_VOL or state['fails'] >= 8: continue
+                  bars, e = post({'type': 'candleSnapshot', 'req': {'coin': r[0], 'interval': '4h',
+                                  'startTime': end - 60 * 4 * 3600 * 1000, 'endTime': end}})
+                  time.sleep(PAUSE)
+                  if not isinstance(bars, list) or not bars:
+                      if e: state['fails'] += 1
+                      errors.append('4h candles {}: {}'.format(r[0], e or 'empty')); continue
+                  state['fails'] = 0
+                  with open(os.path.join(h4d, r[0] + '.csv'), 'w') as f:
+                      f.write('t,o,h,l,c,v,n\n')
+                      for b in sorted(bars, key=lambda b: int(b['t'])):
+                          f.write('{},{},{},{},{},{},{}\n'.format(int(b['t']) // 1000, b['o'], b['h'], b['l'],
+                                                                   b['c'], b['v'], b.get('n', '')))
+                  got4 += 1
               # HIP-3 builder exchanges (stocks, indices, commodities, ...): list every market, candles for the liquid ones
               dexes, e = post({'type': 'perpDexs'})
               hip3, got3 = [], 0
@@ -281,7 +320,7 @@ jobs:
                           got3 += candles(r[2], r[2].replace(':', '__') + '.csv')
               m = {'fetched_utc': started.strftime('%Y-%m-%dT%H:%M:%SZ'),
                    'finished_utc': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-                   'perps': len(rows), 'ohlc_perps': got, 'hip3_markets': len(hip3), 'hip3_ohlc': got3,
+                   'perps': len(rows), 'ohlc_perps': got, 'h4_perps': got4, 'hip3_markets': len(hip3), 'hip3_ohlc': got3,
                    'errors': errors}
               json.dump(m, open(os.path.join(out, 'hl', 'meta.json'), 'w'), indent=1)
               print(json.dumps(m, indent=1))
