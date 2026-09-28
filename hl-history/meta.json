@@ -1,0 +1,206 @@
+{
+ "fetched_utc": "2026-09-28T02:16:51Z",
+ "coins": [
+  {
+   "coin": "BTC",
+   "funding_rows": 87170,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "ETH",
+   "funding_rows": 87170,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "HYPE",
+   "funding_rows": 47594,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "ZEC",
+   "funding_rows": 25910,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "SOL",
+   "funding_rows": 87170,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "NEAR",
+   "funding_rows": 76370,
+   "h1_rows": 5000
+  },
+  {
+   "coin": "XRP",
+   "funding_rows": 86207,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "PUMP",
+   "funding_rows": 31988,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "LIT",
+   "funding_rows": 20072,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "ENA",
+   "funding_rows": 65363,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "DOGE",
+   "funding_rows": 87170,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "UNI",
+   "funding_rows": 82253,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "SUI",
+   "funding_rows": 87170,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "XPL",
+   "funding_rows": 28874,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "LINK",
+   "funding_rows": 87113,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "TAO",
+   "funding_rows": 68459,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "WLD",
+   "funding_rows": 83576,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "ONDO",
+   "funding_rows": 70616,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "AAVE",
+   "funding_rows": 84050,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "XMR",
+   "funding_rows": 18365,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "GRAM",
+   "funding_rows": 6266,
+   "h1_rows": 2106
+  },
+  {
+   "coin": "ZRO",
+   "funding_rows": 80372,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "VVV",
+   "funding_rows": 43733,
+   "h1_rows": 5000
+  },
+  {
+   "coin": "PONS",
+   "funding_rows": 1964,
+   "h1_rows": 672
+  },
+  {
+   "coin": "LTC",
+   "funding_rows": 87170,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "BNB",
+   "funding_rows": 87170,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "ADA",
+   "funding_rows": 77123,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "MON",
+   "funding_rows": 25505,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "CASHCAT",
+   "funding_rows": 5633,
+   "h1_rows": 1895
+  },
+  {
+   "coin": "FARTCOIN",
+   "funding_rows": 46508,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "kPEPE",
+   "funding_rows": 87170,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "ARB",
+   "funding_rows": 87170,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "AERO",
+   "funding_rows": 23051,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "GRASS",
+   "funding_rows": 50315,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "AVAX",
+   "funding_rows": 87170,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "JUP",
+   "funding_rows": 74114,
+   "h1_rows": 5000
+  },
+  {
+   "coin": "ASTER",
+   "funding_rows": 26855,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "PAXG",
+   "funding_rows": 38792,
+   "h1_rows": 5000
+  },
+  {
+   "coin": "PENGU",
+   "funding_rows": 46715,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "CRV",
+   "funding_rows": 87137,
+   "h1_rows": 5001
+  }
+ ],
+ "errors": []
+}
