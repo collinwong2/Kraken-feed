@@ -13,7 +13,7 @@
 #   hl/hip3.csv        every market on Hyperliquid's builder exchanges (HIP-3: stocks, indices, commodities...)
 #   hl/ohlc/DEX__COIN.csv  daily candles for HIP-3 markets trading at least $250k a day (e.g. xyz__TSLA.csv)
 #   hl/dexes.json      the HIP-3 exchanges (Hyperliquid's perpDexs reply, untouched)
-#   hl/h4/COIN.csv     Hyperliquid 4-hour candles (last 60 bars) for main perps trading at least $2m a day
+#   hl/h4/COIN.csv     Hyperliquid 4-hour candles (last 60 bars) for main perps trading at least $1m a day
 #   hl/meta.json       Hyperliquid run: when, what failed
 #
 # The data is saved to a separate branch called "data", which keeps ONE version (each run replaces the
@@ -204,7 +204,7 @@ jobs:
           DAYS = 250                  # daily candles kept per market
           HIP3_MIN_VOL = 250000       # HIP-3 markets below this 24h USD volume are listed but get no candles
           PAUSE = 1.6                 # seconds between candle calls: each costs ~22 of the 1,200/minute allowance
-          H4_MIN_VOL = 2000000        # main perps below this 24h USD volume get no 4-hour candles
+          H4_MIN_VOL = 1000000        # main perps below this 24h USD volume get no 4-hour candles ($1m since 28 Sep 2026)
 
           def post(body, tries=5):
               err = None
