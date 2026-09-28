@@ -1,0 +1,133 @@
+# Fast 4-hour candle refresh for the momentum paper book (added 28 Sep 2026).
+# The hourly feed (feed.yml) takes ~20 minutes and GitHub sometimes delays or skips its timer. This small job
+# fetches ONLY Hyperliquid's 4-hour candles, a few minutes after each 4-hour close (00/04/08/12/16/20 UTC),
+# and can also be started on demand (workflow_dispatch) by the momentum check just before it scans.
+#
+# It starts from the last saved data branch and replaces only:
+#   hl/h4/COIN.csv     Hyperliquid 4-hour candles (last 60 bars) for main perps trading at least $1m a day
+#   hl/h4_meta.json    when this refresh ran, how many coins, what failed
+# Every other file on the data branch is kept exactly as the hourly job left it.
+# It shares the hourly job's concurrency group, so the two never write the data branch at the same time.
+name: h4-feed
+
+on:
+  schedule:
+    - cron: '7 0,4,8,12,16,20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: feed
+  cancel-in-progress: false
+
+jobs:
+  h4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Start from the last saved data
+        run: |
+          if git fetch -q --depth 1 origin data; then
+            echo "DATA_SHA=$(git rev-parse FETCH_HEAD)" >> "$GITHUB_ENV"
+            git checkout -q FETCH_HEAD -- .
+          else
+            echo "no data branch yet - the hourly feed must run first"; exit 1
+          fi
+
+      - name: Hyperliquid 4-hour candles
+        id: hl4
+        timeout-minutes: 10
+        run: |
+          cat > /tmp/h4.py <<'PYEOF'
+          import json, os, sys, time, urllib.request, urllib.error, datetime as dt
+
+          API = 'https://api.hyperliquid.xyz/info'
+          PAUSE = 1.2                 # seconds between candle calls (well inside 1,200 weight/minute)
+          H4_MIN_VOL = 1000000        # same $1m/day floor as the hourly job
+          BARS = 60
+
+          def post(body, tries=4):
+              err = None
+              for i in range(tries):
+                  try:
+                      req = urllib.request.Request(API, data=json.dumps(body).encode(),
+                                                   headers={'Content-Type': 'application/json',
+                                                            'User-Agent': 'price-feed/1.0'})
+                      with urllib.request.urlopen(req, timeout=30) as r:
+                          return json.loads(r.read().decode()), None
+                  except urllib.error.HTTPError as e:
+                      err = 'HTTP {}'.format(e.code)
+                      time.sleep(15 * (i + 1) if e.code == 429 else 5 * (i + 1))
+                  except Exception as e:
+                      err = str(e)
+                      time.sleep(5 * (i + 1))
+              return None, err
+
+          def main(out='.'):
+              started = dt.datetime.now(dt.timezone.utc)
+              errors = []
+              res, e = post({'type': 'metaAndAssetCtxs'})
+              if not isinstance(res, list) or len(res) != 2 or not res[0].get('universe'):
+                  print('metaAndAssetCtxs failed:', e or 'unexpected reply'); return 1
+              meta, ctxs = res
+              coins = []
+              for a, c in zip(meta['universe'], ctxs):
+                  if a.get('isDelisted'): continue
+                  try: vol = float(c.get('dayNtlVlm') or 0)
+                  except ValueError: vol = 0
+                  if vol >= H4_MIN_VOL: coins.append(a['name'])
+              end = int(started.timestamp() * 1000)
+              got, fails, files = 0, 0, {}
+              for coin in coins:
+                  if fails >= 8:
+                      errors.append('4h {}: skipped - Hyperliquid failing repeatedly'.format(coin)); continue
+                  bars, e = post({'type': 'candleSnapshot', 'req': {'coin': coin, 'interval': '4h',
+                                  'startTime': end - BARS * 4 * 3600 * 1000, 'endTime': end}})
+                  time.sleep(PAUSE)
+                  if not isinstance(bars, list) or not bars:
+                      if e: fails += 1
+                      errors.append('4h {}: {}'.format(coin, e or 'empty')); continue
+                  fails = 0
+                  files[coin] = ''.join('{},{},{},{},{},{},{}\n'.format(int(b['t']) // 1000, b['o'], b['h'], b['l'],
+                                                                        b['c'], b['v'], b.get('n', ''))
+                                        for b in sorted(bars, key=lambda b: int(b['t'])))
+                  got += 1
+              if not got:
+                  print('no 4-hour candles fetched - data branch left unchanged'); return 1
+              # replace the folder only once the new set is in hand, so a failed run never empties it
+              h4d = os.path.join(out, 'hl', 'h4')
+              os.makedirs(h4d, exist_ok=True)
+              for fn in os.listdir(h4d): os.remove(os.path.join(h4d, fn))
+              for coin, body in files.items():
+                  with open(os.path.join(h4d, coin + '.csv'), 'w') as f:
+                      f.write('t,o,h,l,c,v,n\n' + body)
+              m = {'fetched_utc': started.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                   'finished_utc': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                   'trigger': os.environ.get('GITHUB_EVENT_NAME', ''),
+                   'h4_perps': got, 'eligible': len(coins), 'errors': errors}
+              json.dump(m, open(os.path.join(out, 'hl', 'h4_meta.json'), 'w'), indent=1)
+              print(json.dumps(m, indent=1))
+              return 0
+
+          if __name__ == '__main__':
+              sys.exit(main(*sys.argv[1:2]))
+          PYEOF
+          python3 /tmp/h4.py .
+
+      - name: Save to the data branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -q --orphan feed-tmp
+          git rm -r -q --cached .github 2>/dev/null || true
+          git add -A -- . ':!.github'
+          git commit -q -m "h4 $(date -u +%Y-%m-%dT%H:%MZ)"
+          for i in 1 2 3; do
+            git push -q --force-with-lease=data:${DATA_SHA} origin feed-tmp:refs/heads/data && exit 0
+            sleep 10
+          done
+          exit 1
