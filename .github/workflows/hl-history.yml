@@ -4,9 +4,12 @@
 #                                 funding-carry test (short the perp, hold the coin, collect funding)
 #   hl-history/h1/COIN.csv        hourly candles, as far back as Hyperliquid serves (about 5,000 hours) - for
 #                                 testing intraday setups against the daily ones
+#   hl-history/h4/COIN.csv        4-hour candles, as far back as Hyperliquid serves (5,000 candles = about 2.3
+#                                 years) for EVERY main-exchange perp, delisted ones included (so the pattern lab
+#                                 is not only tested on coins that survived) - added 28 Sep 2026
 #   hl-history/meta.json          when it ran, which coins, what failed
-# Covers the 40 perps with the most open interest (they are the ones that can carry size). Each coin's funding
-# file is extended from where the last run stopped, so later runs are quick.
+# Funding and hourly candles cover the 40 perps with the most open interest (they are the ones that can carry
+# size). Each coin's funding file is extended from where the last run stopped, so later runs are quick.
 name: hl-history
 
 on:
@@ -24,7 +27,7 @@ concurrency:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v5
 
@@ -34,7 +37,7 @@ jobs:
           if git fetch -q --depth 1 origin hl-history; then
             git checkout -q FETCH_HEAD -- hl-history && mv hl-history out/ || true
           fi
-          mkdir -p out/hl-history/funding out/hl-history/h1
+          mkdir -p out/hl-history/funding out/hl-history/h1 out/hl-history/h4
 
       - name: Fetch from Hyperliquid
         run: |
@@ -62,6 +65,24 @@ jobs:
           res, e = post({'type': 'metaAndAssetCtxs'})
           if not res: print('meta failed', e); sys.exit(1)
           uni, ctx = res
+          # ---- 4-hour candles for every main perp, delisted included (one call each)
+          os.makedirs(os.path.join(OUT, 'h4'), exist_ok=True)
+          meta['h4'] = []
+          for a in uni['universe']:
+              name = a.get('name')
+              if not name: continue
+              bars, e = post({'type': 'candleSnapshot', 'req': {'coin': name, 'interval': '4h',
+                              'startTime': now - 5000 * 4 * 3600 * 1000, 'endTime': now}})
+              time.sleep(1.5)
+              if not bars:
+                  if e: meta['errors'].append('h4 {}: {}'.format(name, e))
+                  continue
+              with open(os.path.join(OUT, 'h4', name + '.csv'), 'w') as f:
+                  f.write('t,o,h,l,c,v\n')
+                  for b in sorted(bars, key=lambda b: int(b['t'])):
+                      f.write('{},{},{},{},{},{}\n'.format(int(b['t']) // 1000, b['o'], b['h'], b['l'], b['c'], b['v']))
+              meta['h4'].append({'coin': name, 'rows': len(bars), 'delisted': bool(a.get('isDelisted'))})
+          print('h4 candles for', len(meta['h4']), 'perps')
           ranked = []
           for a, c in zip(uni['universe'], ctx):
               if a.get('isDelisted'): continue
@@ -103,7 +124,7 @@ jobs:
               meta['coins'].append({'coin': coin, 'funding_rows': len(rows), 'h1_rows': len(bars or [])})
               print(coin, len(rows), len(bars or []))
           json.dump(meta, open(os.path.join(OUT, 'meta.json'), 'w'), indent=1)
-          sys.exit(0 if meta['coins'] and len(meta['errors']) < 10 else 1)
+          sys.exit(0 if meta['coins'] and meta['h4'] and len(meta['errors']) < 25 else 1)
           PYEOF
           python3 /tmp/h.py
 
