@@ -1,0 +1,1368 @@
+{
+ "fetched_utc": "2026-10-04T09:51:17Z",
+ "coins": [
+  {
+   "coin": "ETH",
+   "funding_rows": 87461,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "BTC",
+   "funding_rows": 87461,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "HYPE",
+   "funding_rows": 47835,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "SOL",
+   "funding_rows": 87461,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "ZEC",
+   "funding_rows": 26125,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "NEAR",
+   "funding_rows": 76646,
+   "h1_rows": 5000
+  },
+  {
+   "coin": "PUMP",
+   "funding_rows": 32210,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "XRP",
+   "funding_rows": 86494,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "LIT",
+   "funding_rows": 20280,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "ENA",
+   "funding_rows": 65625,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "ZRO",
+   "funding_rows": 80652,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "DOGE",
+   "funding_rows": 87461,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "SUI",
+   "funding_rows": 87461,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "XPL",
+   "funding_rows": 29093,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "WLD",
+   "funding_rows": 83860,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "UNI",
+   "funding_rows": 82536,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "AAVE",
+   "funding_rows": 84335,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "LINK",
+   "funding_rows": 87403,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "XMR",
+   "funding_rows": 18571,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "TAO",
+   "funding_rows": 68725,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "VVV",
+   "funding_rows": 43969,
+   "h1_rows": 5000
+  },
+  {
+   "coin": "MON",
+   "funding_rows": 25720,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "ONDO",
+   "funding_rows": 70885,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "BNB",
+   "funding_rows": 87461,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "PONS",
+   "funding_rows": 2150,
+   "h1_rows": 823
+  },
+  {
+   "coin": "LTC",
+   "funding_rows": 87461,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "GRAM",
+   "funding_rows": 6458,
+   "h1_rows": 2257
+  },
+  {
+   "coin": "AVAX",
+   "funding_rows": 87461,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "GRASS",
+   "funding_rows": 50559,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "ADA",
+   "funding_rows": 77400,
+   "h1_rows": 5000
+  },
+  {
+   "coin": "FARTCOIN",
+   "funding_rows": 46748,
+   "h1_rows": 5000
+  },
+  {
+   "coin": "CASHCAT",
+   "funding_rows": 5824,
+   "h1_rows": 2046
+  },
+  {
+   "coin": "AERO",
+   "funding_rows": 23263,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "kPEPE",
+   "funding_rows": 87461,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "ASTER",
+   "funding_rows": 27071,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "CRV",
+   "funding_rows": 87427,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "ARB",
+   "funding_rows": 87461,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "PAXG",
+   "funding_rows": 39023,
+   "h1_rows": 5000
+  },
+  {
+   "coin": "PURR",
+   "funding_rows": 16776,
+   "h1_rows": 5001
+  },
+  {
+   "coin": "XLM",
+   "funding_rows": 16327,
+   "h1_rows": 5001
+  }
+ ],
+ "errors": [],
+ "h4": [
+  {
+   "coin": "BTC",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "ETH",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "ATOM",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "MATIC",
+   "rows": 470,
+   "delisted": true
+  },
+  {
+   "coin": "DYDX",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "SOL",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "AVAX",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "BNB",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "APE",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "OP",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "LTC",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "ARB",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "DOGE",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "INJ",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "SUI",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "kPEPE",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "CRV",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "LDO",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "LINK",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "STX",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "RNDR",
+   "rows": 171,
+   "delisted": true
+  },
+  {
+   "coin": "CFX",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "FTM",
+   "rows": 1219,
+   "delisted": true
+  },
+  {
+   "coin": "GMX",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "SNX",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "XRP",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "BCH",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "APT",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "AAVE",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "COMP",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "MKR",
+   "rows": 2637,
+   "delisted": true
+  },
+  {
+   "coin": "WLD",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "FXS",
+   "rows": 3375,
+   "delisted": true
+  },
+  {
+   "coin": "HPOS",
+   "rows": 1713,
+   "delisted": true
+  },
+  {
+   "coin": "RLB",
+   "rows": 1704,
+   "delisted": true
+  },
+  {
+   "coin": "UNIBOT",
+   "rows": 28,
+   "delisted": true
+  },
+  {
+   "coin": "YGG",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "TRX",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "kSHIB",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "UNI",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "SEI",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "RUNE",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "OX",
+   "rows": 29,
+   "delisted": true
+  },
+  {
+   "coin": "SHIA",
+   "rows": 32,
+   "delisted": true
+  },
+  {
+   "coin": "CYBER",
+   "rows": 1756,
+   "delisted": true
+  },
+  {
+   "coin": "ZRO",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "BLZ",
+   "rows": 1095,
+   "delisted": true
+  },
+  {
+   "coin": "DOT",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "BANANA",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "TRB",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "FTT",
+   "rows": 4209,
+   "delisted": true
+  },
+  {
+   "coin": "LOOM",
+   "rows": 1034,
+   "delisted": true
+  },
+  {
+   "coin": "OGN",
+   "rows": 2445,
+   "delisted": true
+  },
+  {
+   "coin": "RDNT",
+   "rows": 1756,
+   "delisted": true
+  },
+  {
+   "coin": "ARK",
+   "rows": 4395,
+   "delisted": true
+  },
+  {
+   "coin": "BNT",
+   "rows": 1714,
+   "delisted": true
+  },
+  {
+   "coin": "CANTO",
+   "rows": 309,
+   "delisted": true
+  },
+  {
+   "coin": "REQ",
+   "rows": 2445,
+   "delisted": true
+  },
+  {
+   "coin": "BIGTIME",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "KAS",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "ORBS",
+   "rows": 1714,
+   "delisted": true
+  },
+  {
+   "coin": "BLUR",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "TIA",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "BSV",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "ADA",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "TON",
+   "rows": 4335,
+   "delisted": true
+  },
+  {
+   "coin": "MINA",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "POLYX",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "GAS",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "PENDLE",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "STG",
+   "rows": 2445,
+   "delisted": true
+  },
+  {
+   "coin": "FET",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "NEAR",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "MEME",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "ORDI",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "BADGER",
+   "rows": 1756,
+   "delisted": true
+  },
+  {
+   "coin": "NEO",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "ZEN",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "FIL",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "PYTH",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "SUSHI",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "ILV",
+   "rows": 1714,
+   "delisted": true
+  },
+  {
+   "coin": "IMX",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "kBONK",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "GMT",
+   "rows": 5000,
+   "delisted": false
+  },
+  {
+   "coin": "SUPER",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "USTC",
+   "rows": 4089,
+   "delisted": true
+  },
+  {
+   "coin": "NFTI",
+   "rows": 18,
+   "delisted": true
+  },
+  {
+   "coin": "JUP",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "kLUNC",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "RSR",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "GALA",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "JTO",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "NTRN",
+   "rows": 1714,
+   "delisted": true
+  },
+  {
+   "coin": "ACE",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "MAV",
+   "rows": 4089,
+   "delisted": true
+  },
+  {
+   "coin": "WIF",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "CAKE",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "PEOPLE",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "ENS",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "ETC",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "XAI",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "MANTA",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "UMA",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "ONDO",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "ALT",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "ZETA",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "DYM",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "MAVIA",
+   "rows": 4089,
+   "delisted": true
+  },
+  {
+   "coin": "W",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "PANDORA",
+   "rows": 30,
+   "delisted": true
+  },
+  {
+   "coin": "STRK",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "PIXEL",
+   "rows": 1756,
+   "delisted": true
+  },
+  {
+   "coin": "AI",
+   "rows": 1756,
+   "delisted": true
+  },
+  {
+   "coin": "TAO",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "AR",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "MYRO",
+   "rows": 1678,
+   "delisted": true
+  },
+  {
+   "coin": "kFLOKI",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "BOME",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "ETHFI",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "ENA",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "MNT",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "TNSR",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "SAGA",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "MERL",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "HBAR",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "POPCAT",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "OMNI",
+   "rows": 2757,
+   "delisted": true
+  },
+  {
+   "coin": "EIGEN",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "REZ",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "NOT",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "TURBO",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "BRETT",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "IO",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "ZK",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "BLAST",
+   "rows": 4188,
+   "delisted": true
+  },
+  {
+   "coin": "LISTA",
+   "rows": 1756,
+   "delisted": true
+  },
+  {
+   "coin": "MEW",
+   "rows": 4088,
+   "delisted": true
+  },
+  {
+   "coin": "RENDER",
+   "rows": 4801,
+   "delisted": false
+  },
+  {
+   "coin": "kDOGS",
+   "rows": 2012,
+   "delisted": true
+  },
+  {
+   "coin": "POL",
+   "rows": 4506,
+   "delisted": false
+  },
+  {
+   "coin": "CATI",
+   "rows": 1220,
+   "delisted": true
+  },
+  {
+   "coin": "CELO",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "HMSTR",
+   "rows": 4428,
+   "delisted": false
+  },
+  {
+   "coin": "SCR",
+   "rows": 3440,
+   "delisted": true
+  },
+  {
+   "coin": "NEIROETH",
+   "rows": 2304,
+   "delisted": true
+  },
+  {
+   "coin": "kNEIRO",
+   "rows": 4266,
+   "delisted": false
+  },
+  {
+   "coin": "GOAT",
+   "rows": 4266,
+   "delisted": false
+  },
+  {
+   "coin": "MOODENG",
+   "rows": 4255,
+   "delisted": false
+  },
+  {
+   "coin": "GRASS",
+   "rows": 4236,
+   "delisted": false
+  },
+  {
+   "coin": "PURR",
+   "rows": 4195,
+   "delisted": false
+  },
+  {
+   "coin": "PNUT",
+   "rows": 4152,
+   "delisted": false
+  },
+  {
+   "coin": "XLM",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "CHILLGUY",
+   "rows": 3278,
+   "delisted": true
+  },
+  {
+   "coin": "SAND",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "IOTA",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "ALGO",
+   "rows": 5001,
+   "delisted": false
+  },
+  {
+   "coin": "HYPE",
+   "rows": 4009,
+   "delisted": false
+  },
+  {
+   "coin": "ME",
+   "rows": 3978,
+   "delisted": false
+  },
+  {
+   "coin": "MOVE",
+   "rows": 3984,
+   "delisted": false
+  },
+  {
+   "coin": "VIRTUAL",
+   "rows": 3978,
+   "delisted": false
+  },
+  {
+   "coin": "PENGU",
+   "rows": 3936,
+   "delisted": false
+  },
+  {
+   "coin": "USUAL",
+   "rows": 3930,
+   "delisted": false
+  },
+  {
+   "coin": "FARTCOIN",
+   "rows": 3919,
+   "delisted": false
+  },
+  {
+   "coin": "AI16Z",
+   "rows": 1856,
+   "delisted": true
+  },
+  {
+   "coin": "AIXBT",
+   "rows": 3917,
+   "delisted": false
+  },
+  {
+   "coin": "ZEREBRO",
+   "rows": 2928,
+   "delisted": true
+  },
+  {
+   "coin": "BIO",
+   "rows": 3834,
+   "delisted": false
+  },
+  {
+   "coin": "GRIFFAIN",
+   "rows": 3840,
+   "delisted": false
+  },
+  {
+   "coin": "SPX",
+   "rows": 3978,
+   "delisted": false
+  },
+  {
+   "coin": "S",
+   "rows": 3757,
+   "delisted": false
+  },
+  {
+   "coin": "MORPHO",
+   "rows": 4056,
+   "delisted": false
+  },
+  {
+   "coin": "TRUMP",
+   "rows": 3746,
+   "delisted": false
+  },
+  {
+   "coin": "MELANIA",
+   "rows": 3735,
+   "delisted": false
+  },
+  {
+   "coin": "ANIME",
+   "rows": 3726,
+   "delisted": false
+  },
+  {
+   "coin": "VINE",
+   "rows": 3480,
+   "delisted": true
+  },
+  {
+   "coin": "VVV",
+   "rows": 3687,
+   "delisted": false
+  },
+  {
+   "coin": "JELLY",
+   "rows": 333,
+   "delisted": true
+  },
+  {
+   "coin": "BERA",
+   "rows": 3630,
+   "delisted": false
+  },
+  {
+   "coin": "TST",
+   "rows": 2821,
+   "delisted": true
+  },
+  {
+   "coin": "LAYER",
+   "rows": 3600,
+   "delisted": false
+  },
+  {
+   "coin": "IP",
+   "rows": 3007,
+   "delisted": true
+  },
+  {
+   "coin": "OM",
+   "rows": 3231,
+   "delisted": true
+  },
+  {
+   "coin": "KAITO",
+   "rows": 3546,
+   "delisted": false
+  },
+  {
+   "coin": "NIL",
+   "rows": 3354,
+   "delisted": false
+  },
+  {
+   "coin": "PAXG",
+   "rows": 3337,
+   "delisted": false
+  },
+  {
+   "coin": "PROMPT",
+   "rows": 2336,
+   "delisted": true
+  },
+  {
+   "coin": "BABY",
+   "rows": 3282,
+   "delisted": false
+  },
+  {
+   "coin": "WCT",
+   "rows": 3223,
+   "delisted": false
+  },
+  {
+   "coin": "HYPER",
+   "rows": 3180,
+   "delisted": false
+  },
+  {
+   "coin": "ZORA",
+   "rows": 3174,
+   "delisted": false
+  },
+  {
+   "coin": "INIT",
+   "rows": 3218,
+   "delisted": false
+  },
+  {
+   "coin": "DOOD",
+   "rows": 2472,
+   "delisted": true
+  },
+  {
+   "coin": "LAUNCHCOIN",
+   "rows": 983,
+   "delisted": true
+  },
+  {
+   "coin": "NXPC",
+   "rows": 3044,
+   "delisted": false
+  },
+  {
+   "coin": "SOPH",
+   "rows": 2964,
+   "delisted": false
+  },
+  {
+   "coin": "RESOLV",
+   "rows": 2886,
+   "delisted": false
+  },
+  {
+   "coin": "SYRUP",
+   "rows": 3091,
+   "delisted": false
+  },
+  {
+   "coin": "PUMP",
+   "rows": 2709,
+   "delisted": false
+  },
+  {
+   "coin": "PROVE",
+   "rows": 2549,
+   "delisted": false
+  },
+  {
+   "coin": "YZY",
+   "rows": 1544,
+   "delisted": true
+  },
+  {
+   "coin": "XPL",
+   "rows": 2449,
+   "delisted": false
+  },
+  {
+   "coin": "WLFI",
+   "rows": 2443,
+   "delisted": false
+  },
+  {
+   "coin": "LINEA",
+   "rows": 2389,
+   "delisted": false
+  },
+  {
+   "coin": "SKY",
+   "rows": 2342,
+   "delisted": false
+  },
+  {
+   "coin": "ASTER",
+   "rows": 2281,
+   "delisted": false
+  },
+  {
+   "coin": "AVNT",
+   "rows": 2340,
+   "delisted": false
+  },
+  {
+   "coin": "STBL",
+   "rows": 2294,
+   "delisted": false
+  },
+  {
+   "coin": "0G",
+   "rows": 2292,
+   "delisted": false
+  },
+  {
+   "coin": "HEMI",
+   "rows": 2408,
+   "delisted": false
+  },
+  {
+   "coin": "APEX",
+   "rows": 2234,
+   "delisted": false
+  },
+  {
+   "coin": "2Z",
+   "rows": 2202,
+   "delisted": false
+  },
+  {
+   "coin": "ZEC",
+   "rows": 3201,
+   "delisted": false
+  },
+  {
+   "coin": "MON",
+   "rows": 2168,
+   "delisted": false
+  },
+  {
+   "coin": "MET",
+   "rows": 2155,
+   "delisted": false
+  },
+  {
+   "coin": "MEGA",
+   "rows": 2082,
+   "delisted": false
+  },
+  {
+   "coin": "CC",
+   "rows": 2028,
+   "delisted": false
+  },
+  {
+   "coin": "ICP",
+   "rows": 2982,
+   "delisted": false
+  },
+  {
+   "coin": "AERO",
+   "rows": 2963,
+   "delisted": false
+  },
+  {
+   "coin": "STABLE",
+   "rows": 1992,
+   "delisted": false
+  },
+  {
+   "coin": "FOGO",
+   "rows": 1785,
+   "delisted": false
+  },
+  {
+   "coin": "LIT",
+   "rows": 1716,
+   "delisted": false
+  },
+  {
+   "coin": "XMR",
+   "rows": 2572,
+   "delisted": false
+  },
+  {
+   "coin": "AXS",
+   "rows": 2556,
+   "delisted": false
+  },
+  {
+   "coin": "DASH",
+   "rows": 2556,
+   "delisted": false
+  },
+  {
+   "coin": "SKR",
+   "rows": 1533,
+   "delisted": false
+  },
+  {
+   "coin": "AZTEC",
+   "rows": 1405,
+   "delisted": false
+  },
+  {
+   "coin": "CHIP",
+   "rows": 993,
+   "delisted": false
+  },
+  {
+   "coin": "GRAM",
+   "rows": 565,
+   "delisted": false
+  },
+  {
+   "coin": "CASHCAT",
+   "rows": 512,
+   "delisted": false
+  },
+  {
+   "coin": "PONS",
+   "rows": 207,
+   "delisted": false
+  },
+  {
+   "coin": "USELESS",
+   "rows": 155,
+   "delisted": false
+  }
+ ]
+}
