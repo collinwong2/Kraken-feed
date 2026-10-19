@@ -1,0 +1,25 @@
+{
+ "fetched_utc": "2026-10-19T10:57:00Z",
+ "sources": {
+  "cg_markets.json": 500,
+  "cg_categories.json": 1628,
+  "llama_protocols.json": 8758,
+  "llama_chains.json": 420,
+  "llama_fees.json": {
+   "dailyFees": 3028,
+   "dailyRevenue": 2670,
+   "dailyHoldersRevenue": 1226
+  },
+  "llama_dexs.json": {
+   "spot": 1556
+  },
+  "llama_hacks.json": 1307,
+  "llama_stables.json": 209,
+  "l2beat.json": 96,
+  "fear_greed.json": 90,
+  "news.json": 111,
+  "github.json": 34
+ },
+ "errors": [],
+ "warnings": []
+}
