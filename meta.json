@@ -1,0 +1,13 @@
+{
+ "fetched_utc": "2026-10-24T06:27:16Z",
+ "finished_utc": "2026-10-24T06:34:25Z",
+ "kraken_server_time": "Sat, 24 Oct 26 06:27:16 +0000",
+ "kraken_unixtime": 1792823236,
+ "ticker_pairs": 680,
+ "ohlc_pairs": 162,
+ "h4_pairs": 162,
+ "ohlc_requested": 162,
+ "not_on_kraken": [],
+ "not_online": {},
+ "errors": []
+}
