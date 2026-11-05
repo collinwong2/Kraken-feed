@@ -1,0 +1,16 @@
+{
+ "fetched_utc": "2026-11-05T13:26:24Z",
+ "sources": {
+  "listings.json": {
+   "binance": 3702,
+   "binance_tags": 509,
+   "coinbase": 845,
+   "upbit": 878
+  },
+  "governance.json": 18,
+  "news.json": 111,
+  "categories.json": 777,
+  "dex_trending.json": 60
+ },
+ "warnings": []
+}
